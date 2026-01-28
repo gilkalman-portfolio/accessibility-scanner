@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(playwright install:*)",
+      "Bash(python test_scanner.py:*)",
+      "Bash(uvicorn app.main:app:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(python -m http.server:*)",
+      "Bash(\"C:\\\\Users\\\\USER\\\\PycharmProjects\\\\accessibility-scanner\\\\.venv\\\\Scripts\\\\python.exe\" --version)",
+      "Bash(python:*)",
+      "Bash(dir /s \"C:\\\\Users\\\\USER\\\\PycharmProjects\\\\accessibility-scanner\")",
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(pip show:*)",
+      "Bash(findstr:*)",
+      "Bash(ping:*)"
+    ]
+  }
+}

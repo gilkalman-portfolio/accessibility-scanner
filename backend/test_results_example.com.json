@@ -1,0 +1,75 @@
+{
+  "scan_id": "scan_bb805c3465a6",
+  "url": "https://example.com",
+  "timestamp": "2026-01-27T07:19:57.506213",
+  "score": 95,
+  "standard": "IL_5568",
+  "locale": "he",
+  "coverage": {
+    "automated_total": "75%",
+    "axe_core": "57%",
+    "playwright_checks": "18%",
+    "manual_required": "25%"
+  },
+  "summary": {
+    "total_issues": 1,
+    "critical": 0,
+    "serious": 0,
+    "moderate": 1,
+    "minor": 0
+  },
+  "issues": {
+    "axe_core": [],
+    "playwright": [
+      {
+        "id": "skip-links",
+        "rule": "bypass-blocks",
+        "wcag": "2.4.1",
+        "severity": "moderate",
+        "title_he": "חסר קישור דילוג לתוכן",
+        "description_he": "הדף לא כולל קישור לדילוג ישירות לתוכן הראשי",
+        "how_to_fix": {
+          "summary_he": "הוסף קישור 'דלג לתוכן ראשי' בתחילת הדף",
+          "code_example": "<a href=\"#main-content\" class=\"skip-link\">דלג לתוכן ראשי</a>",
+          "impact": "משתמשי מקלדת צריכים לעבור דרך כל הניווט בכל עמוד"
+        }
+      }
+    ]
+  },
+  "legal_risk": {
+    "level": "low",
+    "level_he": "סיכון נמוך",
+    "estimated_fine": "₪0 - ₪25,000",
+    "recommendation_he": "האתר במצב טוב יחסית, אך עדיין דורש שיפורים.",
+    "critical_issues": 0,
+    "serious_issues": 0,
+    "law_reference": "תקן ישראלי 5568, חוק שוויון זכויות לאנשים עם מוגבלות"
+  },
+  "what_we_checked": {
+    "checked_automatically": [
+      "תמונות ללא alt text (axe-core)",
+      "ניגודיות צבעים (axe-core)",
+      "תגיות ARIA (axe-core)",
+      "טפסים ללא labels (axe-core)",
+      "מבנה כותרות (axe-core)",
+      "ניווט מקלדת (playwright)",
+      "אינדיקטור פוקוס (playwright)",
+      "קישורי דילוג (playwright)",
+      "טיפול בשגיאות בטפסים (playwright)"
+    ],
+    "requires_manual": [
+      "איכות תיאורי תמונות",
+      "בהירות טקסט קישורים",
+      "הגיון כותרות",
+      "כתוביות וידאו",
+      "תיאור אודיו",
+      "בדיקת קורא מסך",
+      "בדיקת משתמשים"
+    ]
+  },
+  "next_steps": [
+    "המשך לשמור על רמת הנגישות הגבוהה",
+    "בצע בדיקה ידנית לכיסוי המלא",
+    "הוסף בדיקות נגישות ל-CI/CD"
+  ]
+}
