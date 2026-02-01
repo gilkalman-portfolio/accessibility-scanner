@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>בודק נגישות ישראלי - Israeli Accessibility Scanner</title>
     <meta name="description" content="בדיקת נגישות אתרים בעברית. תקן ישראלי 5568 ו-WCAG 2.2 AA. קבל דוח מפורט תוך 30 שניות.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!-- Header -->
     <header class="header">
         <div class="container">
+            <div class="header-badge">תקן 5568 + WCAG 2.2 AA</div>
             <h1>בודק נגישות ישראלי</h1>
-            <p class="tagline">בדוק את נגישות האתר שלך תוך 30 שניות</p>
+            <p class="tagline">הערכת סיכון משפטי וסריקת נגישות אוטומטית לאתר שלך</p>
         </div>
     </header>
 
@@ -23,16 +27,16 @@
             <section class="scanner-section" id="scanner">
                 <div class="scanner-card">
                     <h2>בדוק את האתר שלך עכשיו</h2>
-                    <p class="subtitle">סריקה אוטומטית של 75% מבעיות הנגישות</p>
-                    
+                    <p class="subtitle">סריקה אוטומטית המכסה 77% מבעיות הנגישות הנפוצות</p>
+
                     <form id="scanForm" class="scan-form">
                         <label for="urlInput" class="form-label">
                             הכנס כתובת אתר לבדיקה:
                         </label>
                         <div class="input-group">
-                            <input 
-                                type="url" 
-                                id="urlInput" 
+                            <input
+                                type="url"
+                                id="urlInput"
                                 name="url"
                                 placeholder="https://example.com"
                                 required
@@ -56,28 +60,28 @@
                         <h3>מה אנחנו בודקים?</h3>
                         <div class="coverage-grid">
                             <div class="coverage-item">
-                                <span class="check-icon">✓</span>
+                                <span class="check-icon" aria-hidden="true">&#10003;</span>
                                 <span>תמונות ללא תיאור</span>
                             </div>
                             <div class="coverage-item">
-                                <span class="check-icon">✓</span>
+                                <span class="check-icon" aria-hidden="true">&#10003;</span>
                                 <span>ניגודיות צבעים</span>
                             </div>
                             <div class="coverage-item">
-                                <span class="check-icon">✓</span>
+                                <span class="check-icon" aria-hidden="true">&#10003;</span>
                                 <span>ניווט מקלדת</span>
                             </div>
                             <div class="coverage-item">
-                                <span class="check-icon">✓</span>
+                                <span class="check-icon" aria-hidden="true">&#10003;</span>
                                 <span>תגיות ARIA</span>
                             </div>
                             <div class="coverage-item">
-                                <span class="check-icon">✓</span>
+                                <span class="check-icon" aria-hidden="true">&#10003;</span>
                                 <span>טפסים נגישים</span>
                             </div>
                             <div class="coverage-item">
-                                <span class="check-icon">✓</span>
-                                <span>מבנה כותרות</span>
+                                <span class="check-icon" aria-hidden="true">&#10003;</span>
+                                <span>הצהרת נגישות (5568)</span>
                             </div>
                         </div>
                         <p class="coverage-note">
@@ -89,90 +93,230 @@
 
             <!-- Results Section -->
             <section class="results-section" id="results" style="display: none;">
-            <div class="results-card">
-                <div class="results-status" id="resultsStatus">
-                    <span class="status-icon" aria-hidden="true">✅</span>
-                    <span class="status-text">הסריקה הושלמה</span>
-                </div>
+                <div class="results-card">
+                    <div class="results-status" id="resultsStatus">
+                        <span class="status-dot" aria-hidden="true"></span>
+                        <span class="status-text">הסריקה הושלמה בהצלחה</span>
+                    </div>
 
-                <h2 class="results-title">תוצאות הסריקה</h2>
+                    <h2 class="results-title">תוצאות סריקת נגישות</h2>
+                    <p class="results-url" id="scannedUrl"></p>
 
-                <!-- Exposure framing (no score) -->
-                <div class="exposure-block" role="status" aria-live="polite">
-                    <div class="exposure-label">רמת חשיפה משפטית</div>
-                    <div class="exposure-value" id="exposureValue">—</div>
-                    <div class="exposure-note" id="exposureNote">
-                        זהו חיווי כללי המבוסס על בדיקות אוטומטיות בלבד.
+                    <!-- Score + Risk Row -->
+                    <div class="score-risk-row">
+                        <div class="score-block">
+                            <div class="score-label">ציון נגישות</div>
+                            <div class="score-ring" id="scoreRing">
+                                <svg viewBox="0 0 120 120">
+                                    <circle class="score-ring-bg" cx="60" cy="60" r="52" />
+                                    <circle class="score-ring-fill" cx="60" cy="60" r="52" id="scoreCircle" />
+                                </svg>
+                                <div class="score-number" id="scoreValue">--</div>
+                            </div>
+                            <div class="score-desc" id="scoreDesc">ממתין לתוצאות</div>
+                        </div>
+                        <div class="risk-block" id="riskBlock">
+                            <div class="risk-label">רמת חשיפה משפטית</div>
+                            <div class="risk-badge" id="riskBadge">--</div>
+                            <div class="risk-fine" id="riskFine"></div>
+                            <div class="risk-note" id="riskNote">
+                                זהו חיווי כללי המבוסס על בדיקות אוטומטיות בלבד.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Issues Summary -->
+                    <div class="findings-summary">
+                        <h3 class="summary-title">סיכום ממצאים</h3>
+                        <div class="issues-grid">
+                            <div class="issue-card severity-critical">
+                                <div class="issue-icon" aria-hidden="true">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/><line x1="10" y1="6" x2="10" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="14" r="1" fill="currentColor"/></svg>
+                                </div>
+                                <span class="issue-count" id="criticalCount">0</span>
+                                <span class="issue-label">קריטי</span>
+                            </div>
+                            <div class="issue-card severity-serious">
+                                <div class="issue-icon" aria-hidden="true">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2L18 17H2L10 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="10" y1="8" x2="10" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="15" r="1" fill="currentColor"/></svg>
+                                </div>
+                                <span class="issue-count" id="majorCount">0</span>
+                                <span class="issue-label">חמור</span>
+                            </div>
+                            <div class="issue-card severity-moderate">
+                                <div class="issue-icon" aria-hidden="true">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/><line x1="10" y1="6" x2="10" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="14" r="1" fill="currentColor"/></svg>
+                                </div>
+                                <span class="issue-count" id="moderateCount">0</span>
+                                <span class="issue-label">בינוני</span>
+                            </div>
+                            <div class="issue-card severity-minor">
+                                <div class="issue-icon" aria-hidden="true">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/><line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                </div>
+                                <span class="issue-count" id="minorCount">0</span>
+                                <span class="issue-label">קל</span>
+                            </div>
+                        </div>
+                        <p class="summary-footnote" id="summaryFootnote">
+                            פירוט טכני מלא + המלצות תיקון זמינות בדוח ה-PDF.
+                        </p>
+                    </div>
+
+                    <!-- Clarification -->
+                    <div class="clarification-block">
+                        <div class="clarification-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/><line x1="10" y1="9" x2="10" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="6.5" r="1" fill="currentColor"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="clarification-title">הבהרה חשובה</h3>
+                            <p class="clarification-text">
+                                התוצאות מבוססות על בדיקות אוטומטיות לדף/דפים שנסרקו, ואינן מהוות חוות דעת משפטית
+                                או תחליף לבדיקת נגישות מלאה (כולל בדיקה ידנית) בהתאם לדרישות החוק והתקן בישראל.
+                            </p>
+                            <ul class="clarification-list">
+                                <li>הצהרת נגישות/ווידג'ט/טקסטים חלופיים לא מבטיחים עמידה מלאה.</li>
+                                <li>ייתכן שהמערכת לא תזהה כל בעיה, וייתכנו חיוביים/שליליים שגויים.</li>
+                                <li>הדוח המלא נועד לעזור בתיקון טכני ולצמצום חשיפה, לא לקבוע עמידה משפטית.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- CTA: PDF Report -->
+                    <div class="cta-section">
+                        <div class="cta-card">
+                            <div class="cta-header">
+                                <h3>דוח נגישות מקצועי - PDF</h3>
+                                <div class="cta-price">&#8362;99</div>
+                            </div>
+                            <ul class="cta-features">
+                                <li>פירוט מלא של כל הממצאים</li>
+                                <li>הוראות תיקון עם דוגמאות קוד</li>
+                                <li>הערכת סיכון משפטי מפורטת</li>
+                                <li>רשימת תקן 5568 - מה עומד / מה לא</li>
+                                <li>המלצות תיקון מתועדפות</li>
+                            </ul>
+                            <button class="btn-cta" id="downloadPdfButton">
+                                הורדת דוח נגישות מלא (PDF)
+                            </button>
+                            <p class="cta-note">הדוח נשלח גם למייל שלך</p>
+                        </div>
+                    </div>
+
+                    <!-- Email input (shown after payment / download) -->
+                    <div class="email-section" id="emailSection" style="display: none;">
+                        <div class="email-card">
+                            <h3>שליחת הדוח למייל</h3>
+                            <p>הזן את כתובת המייל שלך לקבלת הדוח:</p>
+                            <form id="emailForm" class="email-form">
+                                <div class="input-group">
+                                    <input
+                                        type="email"
+                                        id="emailInput"
+                                        placeholder="your@email.com"
+                                        required
+                                        aria-label="כתובת אימייל"
+                                        class="email-input"
+                                        dir="ltr"
+                                    >
+                                    <button type="submit" class="btn-primary btn-send-email" id="sendEmailButton">
+                                        שלח דוח
+                                    </button>
+                                </div>
+                                <div id="emailStatus" class="email-status" role="status" style="display: none;"></div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- New scan -->
+                    <div class="new-scan-section">
+                        <button class="btn-secondary-link" id="newScanButton" type="button">
+                            &#8592; בדוק אתר נוסף
+                        </button>
                     </div>
                 </div>
 
-                <!-- Clarification / legal-safe copy -->
-                <div class="clarification-block">
-                    <h3 class="clarification-title">הבהרה חשובה</h3>
-                    <p class="clarification-text">
-                        התוצאות מבוססות על בדיקות אוטומטיות לדף/דפים שנסרקו, ואינן מהוות חוות דעת משפטית או תחליף
-                        לבדיקת נגישות מלאה (כולל בדיקה ידנית) בהתאם לדרישות החוק והתקן בישראל.
-                    </p>
-                    <ul class="clarification-list">
-                        <li>הצהרת נגישות/ווידג׳ט/טקסטים חלופיים לא מבטיחים עמידה מלאה.</li>
-                        <li>ייתכן שהמערכת לא תזהה כל בעיה, וייתכנו חיוביים/שליליים שגויים.</li>
-                        <li>הדוח המלא נועד לעזור בתיקון טכני ולצמצום חשיפה, לא לקבוע עמידה משפטית.</li>
-                    </ul>
-                </div>
-
-                <!-- Findings summary (free) -->
-                <div class="findings-summary">
-                    <h3 class="summary-title">סיכום ממצאים</h3>
-                    <div class="issues-summary">
-                        <div class="issue-count critical">
-                            <span class="count" id="criticalCount">0</span>
-                            <span class="label">קריטי</span>
-                        </div>
-                        <div class="issue-count major">
-                            <span class="count" id="majorCount">0</span>
-                            <span class="label">חמור</span>
-                        </div>
-                        <div class="issue-count minor">
-                            <span class="count" id="minorCount">0</span>
-                            <span class="label">בינוני</span>
-                        </div>
+                <!-- FAQ Section -->
+                <div class="faq-section">
+                    <h2 class="faq-title">שאלות נפוצות</h2>
+                    <div class="faq-list">
+                        <details class="faq-item">
+                            <summary>מה החוק אומר על נגישות אתרים?</summary>
+                            <div class="faq-answer">
+                                <p>
+                                    חוק שוויון זכויות לאנשים עם מוגבלות (תיקון מס' 15) מחייב כל גוף
+                                    להנגיש את שירותי האינטרנט שלו בהתאם לתקן הישראלי 5568.
+                                    התקן מבוסס על הנחיות WCAG 2.2 ברמה AA, ומחייב גם
+                                    פרסום הצהרת נגישות ומינוי רכז/ת נגישות.
+                                </p>
+                                <p>
+                                    אי-עמידה בתקן עלולה לחשוף את בעל האתר לתביעות אזרחיות,
+                                    קנסות מנהליים (עד 150,000 &#8362;), ופגיעה במוניטין.
+                                </p>
+                            </div>
+                        </details>
+                        <details class="faq-item">
+                            <summary>האם הסריקה מספיקה להגנה משפטית?</summary>
+                            <div class="faq-answer">
+                                <p>
+                                    הסריקה האוטומטית מזהה כ-77% מבעיות הנגישות הנפוצות.
+                                    עמידה מלאה בתקן דורשת גם בדיקה ידנית מקצועית,
+                                    כולל בדיקה עם קורא מסך, בדיקת וידאו, ועוד.
+                                </p>
+                                <p>
+                                    הדוח אינו מהווה חוות דעת משפטית ואינו מחליף ייעוץ מקצועי.
+                                </p>
+                            </div>
+                        </details>
+                        <details class="faq-item">
+                            <summary>מה ההבדל בין הסריקה החינמית לדוח בתשלום?</summary>
+                            <div class="faq-answer">
+                                <p>
+                                    <strong>הסריקה החינמית</strong> מציגה ציון כללי, רמת סיכון משפטי,
+                                    וסיכום ממצאים לפי חומרה.
+                                </p>
+                                <p>
+                                    <strong>הדוח בתשלום (&#8362;99)</strong> כולל פירוט מלא של כל בעיה,
+                                    הוראות תיקון עם דוגמאות קוד, רשימת עמידה בתקן 5568,
+                                    המלצות מתועדפות, ואפשרות שליחה במייל.
+                                </p>
+                            </div>
+                        </details>
+                        <details class="faq-item">
+                            <summary>האם נשמר מידע על האתר שלי?</summary>
+                            <div class="faq-answer">
+                                <p>
+                                    לא. המערכת פועלת ב-in-memory בלבד. תוצאות הסריקה אינן נשמרות
+                                    לאחר סיום הסשן. אין מסד נתונים ואין היסטוריית סריקות.
+                                </p>
+                            </div>
+                        </details>
                     </div>
-                    <p class="summary-footnote" id="summaryFootnote">
-                        פירוט טכני מלא + המלצות תיקון זמינות בדוח ה‑PDF.
-                    </p>
                 </div>
-
-                <!-- Single paid CTA -->
-                <div class="cta-section">
-                    <button class="cta-button" id="downloadPdfButton">
-                        הורד דוח מלא (PDF) – ₪99
-                    </button>
-                    <button class="cta-secondary-link" id="newScanButton" type="button">
-                        בדוק אתר נוסף
-                    </button>
-                </div>
-
-                <!-- (Optional) hidden technical list placeholder -->
-                <div class="detailed-issues" id="detailedIssues" style="display:none;"></div>
-            </div>
-        </section>
+            </section>
 
             <!-- Features Section -->
             <section class="features-section">
                 <h2>למה לבחור בנו?</h2>
                 <div class="features-grid">
                     <div class="feature-card">
-                        <div class="feature-icon">🇮🇱</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M16 2C8.3 2 2 8.3 2 16s6.3 14 14 14 14-6.3 14-14S23.7 2 16 2z" stroke="currentColor" stroke-width="2"/><path d="M11 16l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
                         <h3>התאמה לחוק הישראלי</h3>
                         <p>בדיקה לפי תקן ישראלי 5568 והערכת סיכון משפטי</p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">⚡</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M17 2L7 18h8l-2 12L25 14h-8l2-12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                        </div>
                         <h3>מהיר ומדויק</h3>
-                        <p>תוצאות תוך 30 שניות עם 75% כיסוי אוטומטי</p>
+                        <p>תוצאות תוך 30 שניות עם 77% כיסוי אוטומטי</p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">📄</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="6" y="3" width="20" height="26" rx="2" stroke="currentColor" stroke-width="2"/><line x1="11" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/><line x1="11" y1="15" x2="21" y2="15" stroke="currentColor" stroke-width="2"/><line x1="11" y1="20" x2="17" y2="20" stroke="currentColor" stroke-width="2"/></svg>
+                        </div>
                         <h3>דוחות בעברית</h3>
                         <p>הוראות תיקון ברורות עם דוגמאות קוד</p>
                     </div>
@@ -188,9 +332,9 @@
                 <div class="disclaimer">
                     <h4>הצהרת אחריות</h4>
                     <p>
-                        הסריקה האוטומטית מזהה בממוצע 75% מבעיות הנגישות.
-                        נגישות מלאה דורשת גם בדיקה ידנית מקצועית.
-                        השימוש בשירות אינו מהווה ייעוץ משפטי.
+                        המערכת אינה מהווה ייעוץ משפטי. כל המידע בדוח מבוסס על בדיקות
+                        אוטומטיות לפי תקן נגישות 5568 ו-WCAG 2.2 AA. יש לבדוק את
+                        ההמלצות מול יועץ מוסמך במידת הצורך.
                     </p>
                 </div>
                 <nav class="footer-links" aria-label="קישורי תחתית">
@@ -201,7 +345,7 @@
                 </nav>
             </div>
             <p class="copyright">
-                © 2026 Israeli Accessibility Scanner. כל הזכויות שמורות.
+                &copy; 2026 Israeli Accessibility Scanner. כל הזכויות שמורות.
             </p>
         </div>
     </footer>

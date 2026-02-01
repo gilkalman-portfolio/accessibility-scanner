@@ -1,37 +1,59 @@
-console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
 (() => {
-  // ---------------- Config ----------------
+  "use strict";
+
+  // ---- Config ----
   const API_URL =
     window.location.hostname === "localhost"
       ? "http://localhost:8000"
-      : ""; // same-origin in production (recommended)
+      : "";
 
   const ENDPOINT_SCAN = `${API_URL}/api/v1/scan`;
   const ENDPOINT_PDF = `${API_URL}/api/v1/scan/pdf`;
+  const ENDPOINT_EMAIL = `${API_URL}/api/v1/send-report`;
+
+  // ---- DOM refs ----
+  const $ = (id) => document.getElementById(id);
 
   const els = {
-    scanForm: document.getElementById("scanForm"),
-    urlInput: document.getElementById("urlInput"),
-    loading: document.getElementById("loading"),
-    errorMessage: document.getElementById("errorMessage"),
+    scanForm: $("scanForm"),
+    urlInput: $("urlInput"),
+    buttonText: $("buttonText"),
+    buttonLoader: $("buttonLoader"),
+    errorMessage: $("errorMessage"),
 
-    results: document.getElementById("results"),
-    exposureValue: document.getElementById("exposureValue"),
-    exposureNote: document.getElementById("exposureNote"),
+    results: $("results"),
+    scannedUrl: $("scannedUrl"),
 
-    criticalCount: document.getElementById("criticalCount"),
-    majorCount: document.getElementById("majorCount"),
-    minorCount: document.getElementById("minorCount"),
+    scoreValue: $("scoreValue"),
+    scoreCircle: $("scoreCircle"),
+    scoreDesc: $("scoreDesc"),
 
-    downloadPdfButton: document.getElementById("downloadPdfButton"),
-    scanAnotherButton: document.getElementById("scanAnotherButton"),
+    riskBlock: $("riskBlock"),
+    riskBadge: $("riskBadge"),
+    riskFine: $("riskFine"),
+    riskNote: $("riskNote"),
+
+    criticalCount: $("criticalCount"),
+    majorCount: $("majorCount"),
+    moderateCount: $("moderateCount"),
+    minorCount: $("minorCount"),
+
+    downloadPdfButton: $("downloadPdfButton"),
+    newScanButton: $("newScanButton"),
+
+    emailSection: $("emailSection"),
+    emailForm: $("emailForm"),
+    emailInput: $("emailInput"),
+    sendEmailButton: $("sendEmailButton"),
+    emailStatus: $("emailStatus"),
   };
 
   let lastScan = null;
 
-  // ---------------- Helpers ----------------
+  // ---- Helpers ----
   function setLoading(isLoading) {
-    if (els.loading) els.loading.style.display = isLoading ? "block" : "none";
+    if (els.buttonText) els.buttonText.style.display = isLoading ? "none" : "";
+    if (els.buttonLoader) els.buttonLoader.style.display = isLoading ? "inline-block" : "none";
     if (els.scanForm) {
       const btn = els.scanForm.querySelector('button[type="submit"]');
       if (btn) btn.disabled = isLoading;
@@ -59,6 +81,7 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
   function hideResults() {
     if (!els.results) return;
     els.results.style.display = "none";
+    if (els.emailSection) els.emailSection.style.display = "none";
   }
 
   function normalizeUrl(raw) {
@@ -68,6 +91,7 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
     return `https://${s}`;
   }
 
+  // ---- Risk / score labels ----
   function riskLabel(level) {
     const v = (level || "").toUpperCase();
     if (v === "CRITICAL") return "קריטית";
@@ -77,9 +101,8 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
     return "לא ידועה";
   }
 
-  function riskExplanation(explanationKey) {
-    // Keep it legally safe: no promises, no legal advice.
-    switch ((explanationKey || "").toUpperCase()) {
+  function riskExplanation(key) {
+    switch ((key || "").toUpperCase()) {
       case "RISK_CRITICAL":
         return "נמצאו ליקויים מהותיים. זהו דוח אוטומטי ואינו ייעוץ משפטי.";
       case "RISK_HIGH":
@@ -93,6 +116,38 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
     }
   }
 
+  function scoreDescription(score) {
+    if (score >= 80) return "מצב נגישות טוב";
+    if (score >= 60) return "נדרשים שיפורים";
+    if (score >= 40) return "מצב נגישות בינוני";
+    return "נדרשת פעולה מיידית";
+  }
+
+  function scoreColor(score) {
+    if (score >= 80) return "#059669";
+    if (score >= 60) return "#d97706";
+    return "#dc2626";
+  }
+
+  // ---- Score ring animation ----
+  function animateScoreRing(score) {
+    const circle = els.scoreCircle;
+    if (!circle) return;
+
+    const circumference = 2 * Math.PI * 52; // r=52
+    const offset = circumference - (score / 100) * circumference;
+
+    circle.style.stroke = scoreColor(score);
+    // Trigger reflow for animation
+    circle.style.strokeDashoffset = String(circumference);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        circle.style.strokeDashoffset = String(offset);
+      });
+    });
+  }
+
+  // ---- API ----
   async function postJson(url, payload, timeoutMs = 60000) {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -105,11 +160,11 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
         signal: controller.signal,
       });
 
-      const contentType = res.headers.get("content-type") || "";
+      const ct = res.headers.get("content-type") || "";
       if (!res.ok) {
         let errMsg = `שגיאה מהשרת (HTTP ${res.status})`;
         try {
-          if (contentType.includes("application/json")) {
+          if (ct.includes("application/json")) {
             const j = await res.json();
             errMsg = j?.detail || j?.error || j?.message || errMsg;
           } else {
@@ -120,9 +175,7 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
         throw new Error(errMsg);
       }
 
-      if (contentType.includes("application/json")) {
-        return await res.json();
-      }
+      if (ct.includes("application/json")) return await res.json();
       return await res.text();
     } catch (e) {
       if (e.name === "AbortError") {
@@ -134,46 +187,60 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
     }
   }
 
-  // ---------------- Core ----------------
-  async function runScan(url) {
-    // Backend expects: { url }
-    const result = await postJson(ENDPOINT_SCAN, { url });
-    return result;
-  }
-
+  // ---- Render results ----
   function renderResults(scan) {
     lastScan = scan;
 
-    // Map backend schema -> UI fields
-    const level = scan?.risk?.level || "UNKNOWN";
-    const explanationKey = scan?.risk?.explanation_key || "";
+    // URL
+    if (els.scannedUrl) els.scannedUrl.textContent = scan.url || "";
 
-    const summary = scan?.summary || {};
-    const critical = Number(summary.critical || 0);
-    const serious = Number(summary.serious || 0);
-    const moderate = Number(summary.moderate || 0);
-    const minor = Number(summary.minor || 0);
+    // Score
+    const score = Number(scan.score || 0);
+    if (els.scoreValue) els.scoreValue.textContent = String(score);
+    if (els.scoreDesc) els.scoreDesc.textContent = scoreDescription(score);
+    animateScoreRing(score);
 
-    if (els.exposureValue) els.exposureValue.textContent = riskLabel(level);
-    if (els.exposureNote) els.exposureNote.textContent = riskExplanation(explanationKey);
+    // Risk
+    const risk = scan.risk || {};
+    const level = (risk.level || "UNKNOWN").toUpperCase();
+    const explanationKey = risk.explanation_key || "";
 
-    if (els.criticalCount) els.criticalCount.textContent = String(critical);
-    if (els.majorCount) els.majorCount.textContent = String(serious);
-    if (els.minorCount) els.minorCount.textContent = String(moderate + minor);
+    if (els.riskBadge) els.riskBadge.textContent = riskLabel(level);
+    if (els.riskNote) els.riskNote.textContent = riskExplanation(explanationKey);
+    if (els.riskFine && risk.estimated_fine) {
+      els.riskFine.textContent = `טווח קנסות משוער: ${risk.estimated_fine}`;
+    }
 
-    // CTA: keep single paid action behavior (download report)
+    // Risk block styling
+    if (els.riskBlock) {
+      els.riskBlock.className = "risk-block";
+      if (level === "LOW") els.riskBlock.classList.add("risk-low");
+      else if (level === "MEDIUM") els.riskBlock.classList.add("risk-medium");
+      else if (level === "HIGH") els.riskBlock.classList.add("risk-high");
+      else if (level === "CRITICAL") els.riskBlock.classList.add("risk-critical");
+    }
+
+    // Issues summary
+    const summary = scan.summary || {};
+    if (els.criticalCount) els.criticalCount.textContent = String(summary.critical || 0);
+    if (els.majorCount) els.majorCount.textContent = String(summary.serious || 0);
+    if (els.moderateCount) els.moderateCount.textContent = String(summary.moderate || 0);
+    if (els.minorCount) els.minorCount.textContent = String(summary.minor || 0);
+
+    // CTA
     if (els.downloadPdfButton) {
       els.downloadPdfButton.disabled = false;
-      els.downloadPdfButton.style.display = "inline-flex";
     }
+
+    // Hide email section until PDF downloaded
+    if (els.emailSection) els.emailSection.style.display = "none";
 
     showResults();
   }
 
+  // ---- PDF Download ----
   async function downloadPdf(scan) {
-    // Backend likely expects: { url } (and optionally scan_id if you decide later)
     const payload = { url: scan.url };
-
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 90000);
 
@@ -199,13 +266,19 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
       const url = URL.createObjectURL(blob);
 
       a.href = url;
-      const safeId = scan?.scan_id ? scan.scan_id : "scan";
+      const safeId = scan.scan_id || "scan";
       a.download = `accessibility-report-${safeId}.pdf`;
 
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+
+      // Show email section after download
+      if (els.emailSection) {
+        els.emailSection.style.display = "block";
+        els.emailSection.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     } catch (e) {
       if (e.name === "AbortError") {
         throw new Error("הפקת הדוח התארכה יותר מדי (timeout). נסה שוב.");
@@ -216,7 +289,27 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
     }
   }
 
-  // ---------------- Events ----------------
+  // ---- Email sending ----
+  async function sendReportEmail(email) {
+    if (!lastScan) throw new Error("אין תוצאות סריקה.");
+
+    const payload = {
+      url: lastScan.url,
+      scan_id: lastScan.scan_id,
+      email: email,
+    };
+
+    return await postJson(ENDPOINT_EMAIL, payload, 60000);
+  }
+
+  function showEmailStatus(msg, type) {
+    if (!els.emailStatus) return;
+    els.emailStatus.textContent = msg;
+    els.emailStatus.className = `email-status ${type}`;
+    els.emailStatus.style.display = "block";
+  }
+
+  // ---- Events ----
   async function onSubmit(e) {
     e.preventDefault();
     clearError();
@@ -232,7 +325,7 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
 
     setLoading(true);
     try {
-      const result = await runScan(url);
+      const result = await postJson(ENDPOINT_SCAN, { url });
       renderResults(result);
     } catch (err) {
       showError(err?.message || "שגיאה לא ידועה בעת הסריקה.");
@@ -258,16 +351,43 @@ console.log("SCRIPT VERSION: 2026-01-27 BLUE-MAPPING v3");
     }
   }
 
+  async function onSendEmail(e) {
+    e.preventDefault();
+    const email = els.emailInput ? els.emailInput.value.trim() : "";
+    if (!email) return;
+
+    if (els.sendEmailButton) els.sendEmailButton.disabled = true;
+    showEmailStatus("שולח...", "");
+
+    try {
+      await sendReportEmail(email);
+      showEmailStatus("הדוח נשלח בהצלחה למייל שלך.", "success");
+    } catch (err) {
+      showEmailStatus(
+        err?.message || "שליחת המייל נכשלה. נסה שוב.",
+        "error"
+      );
+    } finally {
+      if (els.sendEmailButton) els.sendEmailButton.disabled = false;
+    }
+  }
+
   function onScanAnother() {
     clearError();
     hideResults();
-    if (els.urlInput) els.urlInput.focus();
+    if (els.urlInput) {
+      els.urlInput.value = "";
+      els.urlInput.focus();
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // ---- Bind ----
   function bind() {
     if (els.scanForm) els.scanForm.addEventListener("submit", onSubmit);
     if (els.downloadPdfButton) els.downloadPdfButton.addEventListener("click", onDownloadPdf);
-    if (els.scanAnotherButton) els.scanAnotherButton.addEventListener("click", onScanAnother);
+    if (els.newScanButton) els.newScanButton.addEventListener("click", onScanAnother);
+    if (els.emailForm) els.emailForm.addEventListener("submit", onSendEmail);
   }
 
   // Boot

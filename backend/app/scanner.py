@@ -56,39 +56,60 @@ async def scan_url(url: str, standard: str = "IL_5568", locale: str = "he") -> D
             # Assess legal risk (Israeli law)
             legal_risk = assess_legal_risk(axe_results, playwright_results, standard)
             
+            # Issue counts
+            critical = count_by_severity(axe_results, playwright_results, "critical")
+            serious = count_by_severity(axe_results, playwright_results, "serious")
+            moderate = count_by_severity(axe_results, playwright_results, "moderate")
+            minor = count_by_severity(axe_results, playwright_results, "minor")
+            total = critical + serious + moderate + minor
+
             # Combine results
             report = {
                 "scan_id": scan_id,
                 "url": url,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.utcnow().isoformat() + "Z",
                 "score": score,
                 "standard": standard,
                 "locale": locale,
-                
+
                 "coverage": {
+                    "automated_estimate": 0.77,
                     "automated_total": "77%",
                     "axe_core": "57%",
                     "playwright_checks": "20%",
-                    "manual_required": "23%"
+                    "manual_required": "23%",
+                    "checked_keys": [
+                        "ALT_MISSING", "COLOR_CONTRAST", "ARIA",
+                        "FORM_LABELS", "KEYBOARD_ACCESS", "FOCUS_VISIBLE"
+                    ]
                 },
-                
+
                 "summary": {
-                    "total_issues": len(axe_results.get("violations", [])) + len(playwright_results),
-                    "critical": count_by_severity(axe_results, playwright_results, "critical"),
-                    "serious": count_by_severity(axe_results, playwright_results, "serious"),
-                    "moderate": count_by_severity(axe_results, playwright_results, "moderate"),
-                    "minor": count_by_severity(axe_results, playwright_results, "minor")
+                    "total": total,
+                    "critical": critical,
+                    "serious": serious,
+                    "moderate": moderate,
+                    "minor": minor
                 },
-                
+
                 "issues": {
                     "axe_core": axe_results.get("violations", []),
                     "playwright": playwright_results
                 },
-                
-                "legal_risk": legal_risk,
-                
+
+                "risk": {
+                    "level": legal_risk["level"].upper(),
+                    "level_he": legal_risk["level_he"],
+                    "explanation_key": f"RISK_{legal_risk['level'].upper()}",
+                    "estimated_fine": legal_risk["estimated_fine"],
+                    "recommendation_he": legal_risk["recommendation_he"],
+                    "critical_issues": legal_risk["critical_issues"],
+                    "serious_issues": legal_risk["serious_issues"],
+                    "law_reference": legal_risk["law_reference"]
+                },
+
                 "what_we_checked": get_coverage_info(locale),
-                
+
                 "next_steps": get_next_steps(score, locale)
             }
             
@@ -534,7 +555,12 @@ def assess_legal_risk(axe_results: Dict, playwright_results: List, standard: str
     
     total_severe = critical_count + serious_count
     
-    if total_severe >= 5:
+    if total_severe >= 10 or critical_count >= 5:
+        level = "critical"
+        risk_he = "סיכון קריטי"
+        fine_estimate = "₪75,000 - ₪150,000"
+        recommendation_he = "רמת סיכון גבוהה מאוד. דרושה פעולה מיידית."
+    elif total_severe >= 5:
         level = "high"
         risk_he = "סיכון גבוה"
         fine_estimate = "₪50,000 - ₪150,000"

@@ -15,7 +15,15 @@
       "Bash(ls:*)",
       "Bash(pip show:*)",
       "Bash(findstr:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(tree:*)",
+      "Bash(npx skills add:*)",
+      "Bash(test:*)",
+      "Bash(pip download:*)",
+      "Bash(taskkill:*)",
+      "Bash(dir:*)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)"
     ]
   }
 }
