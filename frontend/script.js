@@ -32,7 +32,6 @@
 
     riskBlock: $("riskBlock"),
     riskBadge: $("riskBadge"),
-    riskFine: $("riskFine"),
     riskNote: $("riskNote"),
 
     criticalCount: $("criticalCount"),
@@ -41,6 +40,8 @@
     minorCount: $("minorCount"),
 
     downloadPdfButton: $("downloadPdfButton"),
+    mobilePdfButton: $("mobilePdfButton"),
+    mobileCta: $("mobileCta"),
     newScanButton: $("newScanButton"),
 
     emailSection: $("emailSection"),
@@ -78,12 +79,16 @@
     if (!els.results) return;
     els.results.style.display = "block";
     els.results.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Show mobile sticky CTA
+    if (els.mobileCta) els.mobileCta.style.display = "";
   }
 
   function hideResults() {
     if (!els.results) return;
     els.results.style.display = "none";
     if (els.emailSection) els.emailSection.style.display = "none";
+    // Hide mobile sticky CTA
+    if (els.mobileCta) els.mobileCta.style.display = "none";
   }
 
   function normalizeUrl(raw) {
@@ -93,28 +98,28 @@
     return `https://${s}`;
   }
 
-  // ---- Risk / score labels ----
-  function riskLabel(level) {
+  // ---- Exposure / score labels ----
+  function exposureLabel(level) {
     const v = (level || "").toUpperCase();
-    if (v === "CRITICAL") return "קריטית";
+    if (v === "CRITICAL") return "גבוהה";
     if (v === "HIGH") return "גבוהה";
     if (v === "MEDIUM") return "בינונית";
     if (v === "LOW") return "נמוכה";
     return "לא ידועה";
   }
 
-  function riskExplanation(key) {
+  function exposureExplanation(key) {
     switch ((key || "").toUpperCase()) {
       case "RISK_CRITICAL":
-        return "נמצאו ליקויים מהותיים. זהו דוח אוטומטי ואינו ייעוץ משפטי.";
+        return "נמצאו בעיות קריטיות רבות. מומלץ לטפל בהן בדחיפות.";
       case "RISK_HIGH":
-        return "נמצאו ליקויים משמעותיים. זהו דוח אוטומטי ואינו ייעוץ משפטי.";
+        return "נמצאו בעיות חמורות. מומלץ לטפל בהן בהקדם כדי לצמצם חשיפה.";
       case "RISK_MEDIUM":
-        return "נמצאו ליקויים בינוניים. זהו דוח אוטומטי ואינו ייעוץ משפטי.";
+        return "נמצאו בעיות בינוניות. כדאי לטפל בהן כדי לשפר את הנגישות.";
       case "RISK_LOW":
-        return "נמצאו ליקויים מעטים יחסית. זהו דוח אוטומטי ואינו ייעוץ משפטי.";
+        return "נמצאו מעט בעיות. האתר במצב טוב יחסית.";
       default:
-        return "זהו דוח אוטומטי ואינו ייעוץ משפטי.";
+        return "התרעה טכנולוגית בלבד, אינה מהווה ייעוץ משפטי.";
     }
   }
 
@@ -202,16 +207,13 @@
     if (els.scoreDesc) els.scoreDesc.textContent = scoreDescription(score);
     animateScoreRing(score);
 
-    // Risk
+    // Exposure level
     const risk = scan.risk || {};
     const level = (risk.level || "UNKNOWN").toUpperCase();
     const explanationKey = risk.explanation_key || "";
 
-    if (els.riskBadge) els.riskBadge.textContent = riskLabel(level);
-    if (els.riskNote) els.riskNote.textContent = riskExplanation(explanationKey);
-    if (els.riskFine && risk.estimated_fine) {
-      els.riskFine.textContent = `טווח קנסות משוער: ${risk.estimated_fine}`;
-    }
+    if (els.riskBadge) els.riskBadge.textContent = exposureLabel(level);
+    if (els.riskNote) els.riskNote.textContent = exposureExplanation(explanationKey);
 
     // Risk block styling
     if (els.riskBlock) {
@@ -388,6 +390,7 @@
   function bind() {
     if (els.scanForm) els.scanForm.addEventListener("submit", onSubmit);
     if (els.downloadPdfButton) els.downloadPdfButton.addEventListener("click", onDownloadPdf);
+    if (els.mobilePdfButton) els.mobilePdfButton.addEventListener("click", onDownloadPdf);
     if (els.newScanButton) els.newScanButton.addEventListener("click", onScanAnother);
     if (els.emailForm) els.emailForm.addEventListener("submit", onSendEmail);
   }

@@ -1,16 +1,17 @@
 """
-PDF Report Generator v3.0 – WeasyPrint Edition
+PDF Report Generator v3.1 – WeasyPrint Edition (Polished)
 Generates professional accessibility risk assessment reports in Hebrew.
 Uses HTML/CSS with native RTL support via WeasyPrint.
 
 Structure:
-  1. Cover – score, site name, date, risk level
+  1. Cover – logo, score, site name, date, risk level
   2. Legal overview – Israeli accessibility law + standard 5568
   3. Issues table – by severity
   4. Detailed issues – description, impact, fix (with code examples)
   5. Standards checklist – checked criteria
   6. Recommendations – prioritised action items
-  7. Legal disclaimer
+  7. Resources & links
+  8. Legal disclaimer + signature
 """
 
 from weasyprint import HTML
@@ -102,6 +103,40 @@ def _risk_color(level: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Inline SVG logo
+# ---------------------------------------------------------------------------
+LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" width="320" height="80">
+  <defs>
+    <linearGradient id="tg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00D4AA"/>
+      <stop offset="35%" stop-color="#00C9A7"/>
+      <stop offset="65%" stop-color="#2196F3"/>
+      <stop offset="100%" stop-color="#6C63FF"/>
+    </linearGradient>
+    <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E040FB"/>
+      <stop offset="50%" stop-color="#7C4DFF"/>
+      <stop offset="100%" stop-color="#448AFF"/>
+    </linearGradient>
+    <linearGradient id="ig" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#536DFE"/>
+      <stop offset="100%" stop-color="#7C4DFF"/>
+    </linearGradient>
+  </defs>
+  <text x="12" y="42" font-family="sans-serif" font-weight="800" font-size="22" letter-spacing="3" fill="url(#tg)">ISRAELI ACCESSIBILITY</text>
+  <text x="12" y="95" font-family="sans-serif" font-weight="900" font-size="56" letter-spacing="2" fill="url(#tg)">SCANNER</text>
+  <circle cx="430" cy="60" r="28" fill="none" stroke="url(#rg)" stroke-width="2.5"/>
+  <circle cx="430" cy="60" r="22" fill="none" stroke="url(#ig)" stroke-width="1" opacity="0.4"/>
+  <g transform="translate(430, 60)">
+    <path d="M-14,0 Q-7,-10 0,-10 Q7,-10 14,0 Q7,10 0,10 Q-7,10 -14,0 Z" fill="none" stroke="url(#ig)" stroke-width="1.5" opacity="0.8"/>
+    <circle cx="0" cy="0" r="4" fill="url(#ig)" opacity="0.9"/>
+    <circle cx="-1" cy="-1" r="1.3" fill="white" opacity="0.5"/>
+    <line x1="-15" y1="15" x2="15" y2="-15" stroke="url(#rg)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+  </g>
+</svg>"""
+
+
+# ---------------------------------------------------------------------------
 # Section builders (return HTML strings)
 # ---------------------------------------------------------------------------
 
@@ -113,9 +148,11 @@ def _build_cover_html(results: Dict) -> str:
 
     fine_html = ""
     if risk.get("estimated_fine"):
-        fine_html = f'<p><strong>טווח קנסות משוער:</strong> {_esc(risk["estimated_fine"])}</p>'
+        fine_html = f'<p class="fine-note"><strong>טווח קנסות משוער:</strong> {_esc(risk["estimated_fine"])}</p>'
 
     return f"""
+    <div class="logo-container">{LOGO_SVG}</div>
+
     <h1 class="title">דו"ח הערכת סיכון נגישות</h1>
 
     <table class="meta-table">
@@ -125,12 +162,22 @@ def _build_cover_html(results: Dict) -> str:
       <tr><td class="meta-label">תקן:</td><td>WCAG 2.2 AA / תקן ישראלי 5568</td></tr>
     </table>
 
-    <div class="score" style="color: {_score_color(score)};">ציון נגישות: {score} / 100</div>
+    <div class="score-box" style="color: {_score_color(score)};">
+      ציון נגישות: {score} / 100
+    </div>
+    <p class="score-note">
+      ציון הנגישות נע בין 0 ל-100, ומבוסס על עמידה בהנחיות WCAG 2.2 ברמה AA ותקן ישראלי 5568.
+      ציון נמוך מצביע על בעיות נגישות משמעותיות הדורשות טיפול.
+    </p>
 
-    <div class="risk" style="border-color: {_risk_color(level)}; color: {_risk_color(level)};">
+    <div class="risk-box" style="border-color: {_risk_color(level)}; color: {_risk_color(level)};">
       רמת סיכון משפטי: {_esc(risk_data["label"])}
     </div>
-    <p>{_esc(risk_data["explanation"])}</p>
+    <p class="risk-note">
+      רמת הסיכון המשפטי מוערכת על בסיס מספר הליקויים וחומרתם,
+      בהתאם לקריטריונים שנקבעו בחוק הנגישות הישראלי.
+    </p>
+    <p class="risk-explanation">{_esc(risk_data["explanation"])}</p>
     {fine_html}
     """
 
@@ -146,7 +193,7 @@ def _build_legal_overview_html() -> str:
       אי-עמידה בתקן עלולה להוביל לתביעות אזרחיות, קנסות מנהליים
       ופגיעה במוניטין.
     </p>
-    <ul>
+    <ul class="legal-list">
       <li>הנגשת האתר לפי WCAG 2.2 AA.</li>
       <li>פרסום הצהרת נגישות באתר.</li>
       <li>מינוי רכז/ת נגישות.</li>
@@ -321,7 +368,20 @@ def _build_recommendations_html(results: Dict) -> str:
 
     return f"""
     <h2>המלצות לצעדים הבאים</h2>
-    <ol>{items}</ol>
+    <ol class="recommendations-list">{items}</ol>
+    """
+
+
+def _build_resources_html() -> str:
+    return """
+    <div class="resources-section">
+      <h2>מקורות מידע נוספים</h2>
+      <p class="resources-links">
+        <a href="https://www.w3.org/WAI/WCAG22/quickref/">WCAG 2.2 Guidelines</a> |
+        <a href="https://www.nevo.co.il/law_html/law01/999_969.htm">חוק הנגישות הישראלי</a> |
+        <a href="https://www.gov.il/he/departments/topics/accessibility">נגישות – אתר ממשלתי</a>
+      </p>
+    </div>
     """
 
 
@@ -336,7 +396,14 @@ def _build_disclaimer_html() -> str:
         השימוש בדו"ח אינו מהווה ייעוץ משפטי.
         להתייעצות משפטית, פנה לעורך דין מוסמך.
       </p>
-      <p class="footer">נוצר על ידי Israeli Accessibility Scanner | {today}</p>
+    </div>
+
+    <div class="signature-block">
+      <p>
+        דו"ח זה נוצר באופן אוטומטי על ידי Israeli Accessibility Scanner.<br>
+        תאריך הפקה: {today}
+      </p>
+      <div class="signature-logo">{LOGO_SVG}</div>
     </div>
     """
 
@@ -348,6 +415,13 @@ REPORT_CSS = """
 @page {
   size: A4;
   margin: 2cm;
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 8px;
+    color: #aaa;
+  }
 }
 
 body {
@@ -355,72 +429,143 @@ body {
   direction: rtl;
   text-align: right;
   font-size: 11px;
-  line-height: 1.6;
-  color: #111827;
+  line-height: 1.7;
+  color: #1f2937;
 }
 
+p {
+  margin-bottom: 10px;
+}
+
+/* Logo */
+.logo-container {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.logo-container svg {
+  display: inline-block;
+}
+
+/* Title */
 h1.title {
   font-size: 28px;
   text-align: center;
   color: #111827;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 3px solid #e5e7eb;
 }
 
+/* Section headings */
 h2 {
   font-size: 18px;
   color: #1a56db;
   border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 6px;
-  margin-top: 24px;
+  padding-bottom: 8px;
+  margin-top: 32px;
+  margin-bottom: 16px;
 }
 
 h3 {
   font-size: 13px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  margin-top: 8px;
 }
 
+/* Meta table */
 .meta-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 .meta-table td {
-  padding: 6px 8px;
+  padding: 8px 10px;
   font-size: 11px;
+  border-bottom: 1px solid #f3f4f6;
 }
 .meta-label {
   font-weight: bold;
-  width: 120px;
+  width: 130px;
+  color: #374151;
 }
 
-.score {
+/* Score box */
+.score-box {
   font-size: 48px;
   font-weight: bold;
   text-align: center;
-  margin: 20px 0;
-  padding: 20px;
+  margin: 24px 0 12px 0;
+  padding: 24px;
   background: #f9fafb;
   border: 2px solid #e5e7eb;
+  border-radius: 8px;
 }
 
-.risk {
-  background-color: #fbe9e7;
+.score-note {
+  font-size: 10px;
+  color: #6b7280;
+  text-align: center;
+  margin-bottom: 24px;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* Risk box */
+.risk-box {
+  background-color: #fef7f0;
   border: 3px solid;
-  padding: 16px;
-  margin: 20px 0;
+  padding: 18px;
+  margin: 24px 0 12px 0;
   font-weight: bold;
   font-size: 24px;
   text-align: center;
+  border-radius: 8px;
 }
 
+.risk-note {
+  font-size: 10px;
+  color: #6b7280;
+  text-align: center;
+  margin-bottom: 12px;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.risk-explanation {
+  font-size: 12px;
+  color: #374151;
+  text-align: center;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.fine-note {
+  font-size: 12px;
+  text-align: center;
+  color: #dc2626;
+  margin-bottom: 16px;
+}
+
+/* Legal list */
+.legal-list {
+  padding-right: 20px;
+  margin-top: 12px;
+  margin-bottom: 16px;
+}
+.legal-list li {
+  margin-bottom: 8px;
+  line-height: 1.7;
+}
+
+/* Summary table */
 .summary-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 12px 0 24px 0;
+  margin: 16px 0 28px 0;
 }
 .summary-table th, .summary-table td {
   border: 1px solid #d1d5db;
-  padding: 8px 12px;
+  padding: 10px 14px;
   text-align: center;
   font-size: 12px;
 }
@@ -436,70 +581,127 @@ h3 {
   font-weight: bold;
 }
 
+/* Issues */
 .issue {
-  margin-bottom: 20px;
+  margin-bottom: 28px;
   border-right: 5px solid #eee;
-  padding-right: 12px;
-  padding-bottom: 8px;
+  padding-right: 14px;
+  padding-bottom: 12px;
+  padding-top: 4px;
+}
+
+.issue p {
+  margin-bottom: 6px;
+  line-height: 1.7;
 }
 
 .severity-badge {
   color: white;
-  padding: 2px 10px;
+  padding: 3px 12px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px;
   margin-right: 8px;
+  display: inline-block;
 }
 
 .wcag-ref {
   font-size: 10px;
   color: #6b7280;
+  margin-top: 2px;
 }
 
+/* Code blocks */
 code, pre {
   font-family: "DejaVu Sans Mono", "Courier New", monospace;
-  background: #f4f4f4;
+  background: #f8f9fa;
   direction: ltr;
   text-align: left;
-  padding: 8px;
+  padding: 10px 12px;
   display: block;
   font-size: 9px;
   border: 1px solid #e5e7eb;
+  border-radius: 4px;
   white-space: pre-wrap;
   word-break: break-all;
+  margin-top: 8px;
 }
 
+/* Checklists */
 .checklist {
   list-style: none;
   padding-right: 0;
+  margin-bottom: 16px;
 }
 .checklist li {
-  margin-bottom: 4px;
-  font-size: 11px;
-}
-
-ol {
-  padding-right: 20px;
-}
-ol li {
   margin-bottom: 6px;
+  font-size: 11px;
+  line-height: 1.6;
 }
 
+/* Recommendations */
+.recommendations-list {
+  padding-right: 22px;
+  margin-bottom: 16px;
+}
+.recommendations-list li {
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+
+/* Resources */
+.resources-section {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.resources-links {
+  font-size: 11px;
+  direction: ltr;
+  text-align: right;
+}
+
+.resources-links a {
+  color: #1a56db;
+  text-decoration: underline;
+}
+
+/* Disclaimer */
 .disclaimer {
   font-size: 10px;
   color: #666;
-  border-top: 1px solid #ccc;
+  border-top: 2px solid #d1d5db;
   margin-top: 40px;
   padding-top: 20px;
+  line-height: 1.7;
 }
 
-.footer {
+/* Signature block */
+.signature-block {
+  margin-top: 24px;
+  padding-top: 16px;
   text-align: center;
-  font-size: 10px;
-  color: #999;
-  margin-top: 16px;
+  border-top: 1px dashed #d1d5db;
 }
 
+.signature-block p {
+  font-size: 10px;
+  color: #9ca3af;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.signature-logo {
+  text-align: center;
+  opacity: 0.6;
+}
+
+.signature-logo svg {
+  width: 200px;
+  height: auto;
+}
+
+/* Page breaks */
 .page-break {
   page-break-before: always;
 }
@@ -521,6 +723,7 @@ def generate_pdf_report(results: Dict[str, Any]) -> bytes:
         _build_detailed_issues_html(results),
         _build_standards_checklist_html(results),
         _build_recommendations_html(results),
+        _build_resources_html(),
         _build_disclaimer_html(),
     ]
 
