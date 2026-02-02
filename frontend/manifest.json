@@ -1,0 +1,25 @@
+{
+  "name": "בודק נגישות ישראלי - Israeli Accessibility Scanner",
+  "short_name": "בודק נגישות",
+  "description": "בדיקת נגישות אתרים בעברית. תקן ישראלי 5568 ו-WCAG 2.2 AA.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a56db",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
