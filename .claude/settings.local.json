@@ -23,7 +23,22 @@
       "Bash(taskkill:*)",
       "Bash(dir:*)",
       "Bash(git rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(where:*)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(node --version:*)",
+      "Bash(npm --version:*)",
+      "Bash(npm install:*)",
+      "Bash(railway whoami:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(railway status:*)",
+      "Bash(railway list:*)",
+      "Bash(railway init:*)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:/c/Users/USER/AppData/Roaming/npm:$PATH\")",
+      "Bash(node:*)"
     ]
   }
 }

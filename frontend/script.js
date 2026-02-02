@@ -2,10 +2,12 @@
   "use strict";
 
   // ---- Config ----
+  // In production, set window.__API_URL__ via a <script> tag or environment config.
+  // Falls back to same-origin ("") if not set.
   const API_URL =
     window.location.hostname === "localhost"
       ? "http://localhost:8000"
-      : "";
+      : (window.__API_URL__ || "");
 
   const ENDPOINT_SCAN = `${API_URL}/api/v1/scan`;
   const ENDPOINT_PDF = `${API_URL}/api/v1/scan/pdf`;
