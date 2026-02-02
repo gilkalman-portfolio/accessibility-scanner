@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
 ARG CACHEBUST=1
 
 # Copy requirements
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install --with-deps
 
 # Copy application code
-COPY ./app ./app
+COPY backend/app ./app
 
 # Expose port
 EXPOSE 8000
