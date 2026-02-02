@@ -1,7 +1,9 @@
 """
-PDF Report Generator v2.0
+PDF Report Generator v3.0 – WeasyPrint Edition
 Generates professional accessibility risk assessment reports in Hebrew.
-Structure per pdf_creator.md:
+Uses HTML/CSS with native RTL support via WeasyPrint.
+
+Structure:
   1. Cover – score, site name, date, risk level
   2. Legal overview – Israeli accessibility law + standard 5568
   3. Issues table – by severity
@@ -11,114 +13,14 @@ Structure per pdf_creator.md:
   7. Legal disclaimer
 """
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
-)
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
+from weasyprint import HTML
 from io import BytesIO
 from datetime import datetime
 from typing import Dict, Any, List
 import logging
-import os
-import re
-
-try:
-    from bidi.algorithm import get_display as _bidi_display
-    _HAS_BIDI = True
-except ImportError:
-    _HAS_BIDI = False
+import html as html_module
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# BiDi helper – reorders Hebrew text for ReportLab's LTR renderer
-# ---------------------------------------------------------------------------
-_HEB_RE = re.compile(r'[\u0590-\u05FF]')  # Hebrew Unicode block
-
-
-def _heb(text: str) -> str:
-    """Apply BiDi algorithm to text containing Hebrew characters.
-
-    Preserves HTML tags (<b>, <br/>, <pre>, etc.) by processing only the
-    text segments between tags.  Skips text that has no Hebrew chars.
-    """
-    if not _HAS_BIDI or not text or not _HEB_RE.search(text):
-        return text
-
-    # Split on HTML tags, apply bidi only to non-tag segments
-    parts = re.split(r'(<[^>]+>)', text)
-    result = []
-    for part in parts:
-        if part.startswith('<'):
-            result.append(part)
-        elif _HEB_RE.search(part):
-            result.append(_bidi_display(part))
-        else:
-            result.append(part)
-    return ''.join(result)
-
-
-# ---------------------------------------------------------------------------
-# Font registration
-# ---------------------------------------------------------------------------
-_HEBREW_FONT_REGISTERED = False
-_HEBREW_FONT_NAME = "Helvetica"
-_HEBREW_FONT_BOLD = "Helvetica-Bold"
-
-
-def _register_hebrew_font():
-    """Attempt to register a Hebrew-capable font (DejaVu Sans)."""
-    global _HEBREW_FONT_REGISTERED, _HEBREW_FONT_NAME, _HEBREW_FONT_BOLD
-
-    if _HEBREW_FONT_REGISTERED:
-        return
-
-    # Common locations for DejaVu Sans
-    search_paths = [
-        # Linux
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        # Windows
-        os.path.expandvars(r"%WINDIR%\Fonts\DejaVuSans.ttf"),
-        os.path.expandvars(r"%WINDIR%\Fonts\DejaVuSans-Bold.ttf"),
-        # Docker / playwright image
-        "/usr/share/fonts/DejaVuSans.ttf",
-        "/usr/share/fonts/DejaVuSans-Bold.ttf",
-        # Bundled next to this file
-        os.path.join(os.path.dirname(__file__), "fonts", "DejaVuSans.ttf"),
-        os.path.join(os.path.dirname(__file__), "fonts", "DejaVuSans-Bold.ttf"),
-    ]
-
-    regular = None
-    bold = None
-    for p in search_paths:
-        if os.path.isfile(p):
-            if "Bold" in p:
-                bold = p
-            else:
-                regular = p
-
-    if regular:
-        try:
-            pdfmetrics.registerFont(TTFont("HebrewFont", regular))
-            _HEBREW_FONT_NAME = "HebrewFont"
-            if bold:
-                pdfmetrics.registerFont(TTFont("HebrewFontBold", bold))
-                _HEBREW_FONT_BOLD = "HebrewFontBold"
-            else:
-                _HEBREW_FONT_BOLD = "HebrewFont"
-            logger.info(f"Registered Hebrew font: {regular}")
-        except Exception as e:
-            logger.warning(f"Could not register Hebrew font: {e}")
-
-    _HEBREW_FONT_REGISTERED = True
-
 
 # ---------------------------------------------------------------------------
 # Hebrew copy
@@ -159,146 +61,20 @@ SEVERITY_LABELS = {
 }
 
 SEVERITY_COLORS = {
-    "critical": colors.HexColor("#dc2626"),
-    "serious": colors.HexColor("#d97706"),
-    "moderate": colors.HexColor("#0891b2"),
-    "minor": colors.HexColor("#6b7280"),
+    "critical": "#dc2626",
+    "serious": "#d97706",
+    "moderate": "#0891b2",
+    "minor": "#6b7280",
 }
 
 
 # ---------------------------------------------------------------------------
-# Styles
+# Helpers
 # ---------------------------------------------------------------------------
-def _get_styles():
-    _register_hebrew_font()
-    base = getSampleStyleSheet()
+def _esc(value) -> str:
+    """Escape HTML special characters."""
+    return html_module.escape(str(value))
 
-    heading = ParagraphStyle(
-        "HebHeading",
-        parent=base["Heading1"],
-        fontName=_HEBREW_FONT_BOLD,
-        fontSize=18,
-        alignment=TA_RIGHT,
-        textColor=colors.HexColor("#111827"),
-        spaceAfter=8,
-    )
-
-    subheading = ParagraphStyle(
-        "HebSubheading",
-        parent=base["Heading2"],
-        fontName=_HEBREW_FONT_BOLD,
-        fontSize=14,
-        alignment=TA_RIGHT,
-        textColor=colors.HexColor("#1a56db"),
-        spaceAfter=6,
-    )
-
-    body = ParagraphStyle(
-        "HebBody",
-        parent=base["Normal"],
-        fontName=_HEBREW_FONT_NAME,
-        fontSize=10,
-        alignment=TA_RIGHT,
-        leading=15,
-    )
-
-    body_small = ParagraphStyle(
-        "HebBodySmall",
-        parent=body,
-        fontSize=9,
-        leading=13,
-    )
-
-    centered = ParagraphStyle(
-        "HebCentered",
-        parent=body,
-        alignment=TA_CENTER,
-    )
-
-    centered_large = ParagraphStyle(
-        "HebCenteredLarge",
-        parent=centered,
-        fontName=_HEBREW_FONT_BOLD,
-        fontSize=28,
-        spaceAfter=10,
-    )
-
-    code_style = ParagraphStyle(
-        "CodeStyle",
-        parent=base["Code"],
-        fontName="Courier",
-        fontSize=8,
-        alignment=TA_LEFT,
-        leading=11,
-        backColor=colors.HexColor("#f3f4f6"),
-    )
-
-    return {
-        "heading": heading,
-        "subheading": subheading,
-        "body": body,
-        "body_small": body_small,
-        "centered": centered,
-        "centered_large": centered_large,
-        "code": code_style,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-def generate_pdf_report(results: Dict[str, Any]) -> bytes:
-    """Generate a complete Hebrew PDF accessibility report."""
-    buf = BytesIO()
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        rightMargin=2 * cm,
-        leftMargin=2 * cm,
-        topMargin=2 * cm,
-        bottomMargin=2 * cm,
-        title=_heb(f"דוח הערכת סיכון נגישות – {results.get('url', '')}"),
-    )
-
-    elements: list = []
-    s = _get_styles()
-
-    # 1. Cover
-    elements += _build_cover(results, s)
-    elements.append(PageBreak())
-
-    # 2. Legal overview
-    elements += _build_legal_overview(s)
-    elements.append(Spacer(1, 0.5 * cm))
-
-    # 3. Issues table
-    elements += _build_issues_table(results, s)
-    elements.append(PageBreak())
-
-    # 4. Detailed issues
-    elements += _build_detailed_issues(results, s)
-    elements.append(PageBreak())
-
-    # 5. Standards checklist
-    elements += _build_standards_checklist(results, s)
-    elements.append(Spacer(1, 0.5 * cm))
-
-    # 6. Recommendations
-    elements += _build_recommendations(results, s)
-    elements.append(Spacer(1, 0.5 * cm))
-
-    # 7. Disclaimer + footer
-    elements += _build_disclaimer(s)
-
-    doc.build(elements)
-    pdf_bytes = buf.getvalue()
-    buf.close()
-    return pdf_bytes
-
-
-# ---------------------------------------------------------------------------
-# Sections
-# ---------------------------------------------------------------------------
 
 def _fmt_date(ts: str) -> str:
     try:
@@ -308,168 +84,106 @@ def _fmt_date(ts: str) -> str:
         return ts
 
 
-def _build_cover(results: Dict, s) -> list:
-    """Cover page: score, site URL, date, risk level."""
-    elems: list = []
+def _score_color(score: int) -> str:
+    if score >= 80:
+        return "#059669"
+    if score >= 60:
+        return "#d97706"
+    return "#dc2626"
 
-    elems.append(Paragraph(_heb("דוח הערכת סיכון נגישות"), s["centered_large"]))
-    elems.append(Spacer(1, 0.4 * cm))
 
-    # Metadata
-    meta = [
-        [_heb("כתובת אתר:"), results.get("url", "")],
-        [_heb("תאריך סריקה:"), _fmt_date(results.get("timestamp", ""))],
-        [_heb("מזהה:"), results.get("scan_id", "")],
-        [_heb("תקן:"), _heb("תקן ישראלי 5568 / WCAG 2.2 AA")],
-    ]
-    t = Table(meta, colWidths=[4 * cm, 12 * cm])
-    t.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-        ("FONTNAME", (0, 0), (0, -1), _HEBREW_FONT_BOLD),
-        ("FONTNAME", (1, 0), (1, -1), _HEBREW_FONT_NAME),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    elems.append(t)
-    elems.append(Spacer(1, 0.8 * cm))
+def _risk_color(level: str) -> str:
+    return {
+        "LOW": "#059669",
+        "MEDIUM": "#d97706",
+        "HIGH": "#dc2626",
+        "CRITICAL": "#880000",
+    }.get(level, "#d97706")
 
-    # Score
-    score = results.get("score", 0)
-    score_color = (
-        colors.HexColor("#059669") if score >= 80
-        else colors.HexColor("#d97706") if score >= 60
-        else colors.HexColor("#dc2626")
-    )
-    elems.append(Paragraph(_heb("ציון נגישות"), s["subheading"]))
-    score_tbl = Table([[f"{score} / 100"]], colWidths=[16 * cm])
-    score_tbl.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("FONTNAME", (0, 0), (-1, -1), _HEBREW_FONT_BOLD),
-        ("FONTSIZE", (0, 0), (-1, -1), 36),
-        ("TEXTCOLOR", (0, 0), (-1, -1), score_color),
-        ("BOX", (0, 0), (-1, -1), 2, colors.HexColor("#e5e7eb")),
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f9fafb")),
-        ("TOPPADDING", (0, 0), (-1, -1), 20),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 20),
-    ]))
-    elems.append(score_tbl)
-    elems.append(Spacer(1, 0.6 * cm))
 
-    # Risk level
+# ---------------------------------------------------------------------------
+# Section builders (return HTML strings)
+# ---------------------------------------------------------------------------
+
+def _build_cover_html(results: Dict) -> str:
+    score = int(results.get("score", 0))
     risk = results.get("risk", {})
     level = risk.get("level", "MEDIUM")
     risk_data = RISK_COPY.get(level, RISK_COPY["MEDIUM"])
-    risk_color = {
-        "LOW": colors.HexColor("#059669"),
-        "MEDIUM": colors.HexColor("#d97706"),
-        "HIGH": colors.HexColor("#dc2626"),
-        "CRITICAL": colors.HexColor("#880000"),
-    }.get(level, colors.HexColor("#d97706"))
 
-    elems.append(Paragraph(_heb("רמת סיכון משפטי"), s["subheading"]))
-    risk_tbl = Table([[_heb(risk_data["label"])]], colWidths=[16 * cm])
-    risk_tbl.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("FONTNAME", (0, 0), (-1, -1), _HEBREW_FONT_BOLD),
-        ("FONTSIZE", (0, 0), (-1, -1), 24),
-        ("TEXTCOLOR", (0, 0), (-1, -1), risk_color),
-        ("BOX", (0, 0), (-1, -1), 3, risk_color),
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fafafa")),
-        ("TOPPADDING", (0, 0), (-1, -1), 18),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 18),
-    ]))
-    elems.append(risk_tbl)
-    elems.append(Spacer(1, 0.3 * cm))
-    elems.append(Paragraph(_heb(risk_data["explanation"]), s["body"]))
-
+    fine_html = ""
     if risk.get("estimated_fine"):
-        elems.append(Spacer(1, 0.2 * cm))
-        elems.append(Paragraph(
-            _heb(f"<b>טווח קנסות משוער:</b> {risk['estimated_fine']}"), s["body"]
-        ))
+        fine_html = f'<p><strong>טווח קנסות משוער:</strong> {_esc(risk["estimated_fine"])}</p>'
 
-    return elems
+    return f"""
+    <h1 class="title">דו"ח הערכת סיכון נגישות</h1>
 
+    <table class="meta-table">
+      <tr><td class="meta-label">כתובת אתר:</td><td>{_esc(results.get("url", ""))}</td></tr>
+      <tr><td class="meta-label">תאריך סריקה:</td><td>{_esc(_fmt_date(results.get("timestamp", "")))}</td></tr>
+      <tr><td class="meta-label">מזהה סריקה:</td><td>{_esc(results.get("scan_id", ""))}</td></tr>
+      <tr><td class="meta-label">תקן:</td><td>WCAG 2.2 AA / תקן ישראלי 5568</td></tr>
+    </table>
 
-def _build_legal_overview(s) -> list:
-    """Section 2: short explanation of the law and standard 5568."""
-    elems: list = []
-    elems.append(Paragraph(_heb("סקירה משפטית"), s["heading"]))
-    elems.append(Spacer(1, 0.2 * cm))
+    <div class="score" style="color: {_score_color(score)};">ציון נגישות: {score} / 100</div>
 
-    text = (
-        "חוק שוויון זכויות לאנשים עם מוגבלות (תיקון מס' 15) מחייב כל גוף "
-        "להנגיש את שירותי האינטרנט שלו בהתאם לתקן הישראלי 5568. "
-        "התקן מבוסס על הנחיות WCAG 2.2 ברמה AA. "
-        "אי-עמידה בתקן עלולה להוביל לתביעות אזרחיות, קנסות מנהליים "
-        "ופגיעה במוניטין."
-    )
-    elems.append(Paragraph(_heb(text), s["body"]))
-    elems.append(Spacer(1, 0.2 * cm))
-
-    obligations = [
-        "הנגשת האתר לפי WCAG 2.2 AA.",
-        "פרסום הצהרת נגישות באתר.",
-        "מינוי רכז/ת נגישות.",
-        "ביצוע סקר נגישות תקופתי.",
-    ]
-    for item in obligations:
-        elems.append(Paragraph(_heb(f"• {item}"), s["body"]))
-
-    return elems
+    <div class="risk" style="border-color: {_risk_color(level)}; color: {_risk_color(level)};">
+      רמת סיכון משפטי: {_esc(risk_data["label"])}
+    </div>
+    <p>{_esc(risk_data["explanation"])}</p>
+    {fine_html}
+    """
 
 
-def _build_issues_table(results: Dict, s) -> list:
-    """Section 3: issues summary table by severity."""
-    elems: list = []
-    elems.append(Paragraph(_heb("סיכום ממצאים לפי חומרה"), s["heading"]))
-    elems.append(Spacer(1, 0.2 * cm))
+def _build_legal_overview_html() -> str:
+    return """
+    <div class="page-break"></div>
+    <h2>סקירה משפטית</h2>
+    <p>
+      חוק שוויון זכויות לאנשים עם מוגבלות (תיקון מס' 15) מחייב כל גוף
+      להנגיש את שירותי האינטרנט שלו בהתאם לתקן הישראלי 5568.
+      התקן מבוסס על הנחיות WCAG 2.2 ברמה AA.
+      אי-עמידה בתקן עלולה להוביל לתביעות אזרחיות, קנסות מנהליים
+      ופגיעה במוניטין.
+    </p>
+    <ul>
+      <li>הנגשת האתר לפי WCAG 2.2 AA.</li>
+      <li>פרסום הצהרת נגישות באתר.</li>
+      <li>מינוי רכז/ת נגישות.</li>
+      <li>ביצוע סקר נגישות תקופתי.</li>
+    </ul>
+    """
 
+
+def _build_issues_table_html(results: Dict) -> str:
     summary = results.get("summary", {})
-    data = [
-        [_heb("סוג ליקוי"), _heb("כמות")],
-        [_heb("קריטי"), str(summary.get("critical", 0))],
-        [_heb("חמור"), str(summary.get("serious", 0))],
-        [_heb("בינוני"), str(summary.get("moderate", 0))],
-        [_heb("קל"), str(summary.get("minor", 0))],
-        [_heb('סה"כ'), str(summary.get("total", 0))],
+    rows = [
+        ("קריטי", summary.get("critical", 0), SEVERITY_COLORS["critical"]),
+        ("חמור", summary.get("serious", 0), SEVERITY_COLORS["serious"]),
+        ("בינוני", summary.get("moderate", 0), SEVERITY_COLORS["moderate"]),
+        ("קל", summary.get("minor", 0), SEVERITY_COLORS["minor"]),
     ]
+    total = summary.get("total", 0)
 
-    tbl = Table(data, colWidths=[8 * cm, 8 * cm])
+    rows_html = ""
+    for label, count, color in rows:
+        rows_html += f'<tr><td>{label}</td><td style="color:{color};font-weight:bold;">{count}</td></tr>\n'
 
-    style_cmds = [
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("FONTNAME", (0, 0), (-1, 0), _HEBREW_FONT_BOLD),
-        ("FONTNAME", (0, -1), (-1, -1), _HEBREW_FONT_BOLD),
-        ("FONTNAME", (0, 1), (-1, -2), _HEBREW_FONT_NAME),
-        ("FONTSIZE", (0, 0), (-1, -1), 11),
-        ("GRID", (0, 0), (-1, -1), 1, colors.HexColor("#d1d5db")),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e5e7eb")),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e5e7eb")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f9fafb")]),
-    ]
-
-    # Color the severity count cells
-    severity_row_colors = [
-        (1, colors.HexColor("#dc2626")),  # critical
-        (2, colors.HexColor("#d97706")),  # serious
-        (3, colors.HexColor("#0891b2")),  # moderate
-        (4, colors.HexColor("#6b7280")),  # minor
-    ]
-    for row, clr in severity_row_colors:
-        style_cmds.append(("TEXTCOLOR", (1, row), (1, row), clr))
-
-    tbl.setStyle(TableStyle(style_cmds))
-    elems.append(tbl)
-    return elems
+    return f"""
+    <h2>סיכום ממצאים לפי חומרה</h2>
+    <table class="summary-table">
+      <thead>
+        <tr><th>סוג ליקוי</th><th>כמות</th></tr>
+      </thead>
+      <tbody>
+        {rows_html}
+        <tr class="total-row"><td>סה"כ</td><td>{total}</td></tr>
+      </tbody>
+    </table>
+    """
 
 
-def _build_detailed_issues(results: Dict, s) -> list:
-    """Section 4: detailed issue descriptions with fix instructions."""
-    elems: list = []
-    elems.append(Paragraph(_heb("פירוט ממצאים"), s["heading"]))
-    elems.append(Spacer(1, 0.2 * cm))
-
+def _build_detailed_issues_html(results: Dict) -> str:
     issues = results.get("issues", {})
     all_issues: List[Dict] = []
 
@@ -497,106 +211,82 @@ def _build_detailed_issues(results: Dict, s) -> list:
         })
 
     if not all_issues:
-        elems.append(Paragraph(_heb("לא נמצאו ליקויים בסריקה האוטומטית."), s["body"]))
-        return elems
+        return """
+        <div class="page-break"></div>
+        <h2>פירוט ממצאים</h2>
+        <p>לא נמצאו ליקויים בסריקה האוטומטית.</p>
+        """
 
     # Sort: critical first
     severity_order = {"critical": 0, "serious": 1, "moderate": 2, "minor": 3}
     all_issues.sort(key=lambda x: severity_order.get(x["severity"], 9))
 
+    issues_html = '<div class="page-break"></div>\n<h2>פירוט ממצאים</h2>\n'
+
     for i, issue in enumerate(all_issues, 1):
         sev = issue["severity"]
         sev_label = SEVERITY_LABELS.get(sev, sev)
-        sev_color = SEVERITY_COLORS.get(sev, colors.grey)
+        sev_color = SEVERITY_COLORS.get(sev, "#6b7280")
 
-        # Issue header
-        header_data = [[_heb(f"{i}. {issue['title']}"), _heb(sev_label)]]
-        header_tbl = Table(header_data, colWidths=[12 * cm, 4 * cm])
-        header_tbl.setStyle(TableStyle([
-            ("ALIGN", (0, 0), (0, 0), "RIGHT"),
-            ("ALIGN", (1, 0), (1, 0), "CENTER"),
-            ("FONTNAME", (0, 0), (0, 0), _HEBREW_FONT_BOLD),
-            ("FONTNAME", (1, 0), (1, 0), _HEBREW_FONT_BOLD),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("TEXTCOLOR", (1, 0), (1, 0), colors.white),
-            ("BACKGROUND", (1, 0), (1, 0), sev_color),
-            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        elems.append(header_tbl)
+        issue_html = f'<div class="issue" style="border-right-color: {sev_color};">\n'
+        issue_html += f'  <h3>{i}. {_esc(issue["title"])} '
+        issue_html += f'<span class="severity-badge" style="background:{sev_color};">{sev_label}</span></h3>\n'
 
-        # Description
         if issue.get("help"):
-            elems.append(Paragraph(_heb(issue["help"]), s["body_small"]))
+            issue_html += f'  <p>{_esc(issue["help"])}</p>\n'
 
         if issue.get("wcag"):
-            elems.append(Paragraph(f"WCAG: {issue['wcag']}", s["body_small"]))
+            issue_html += f'  <p class="wcag-ref">WCAG: {_esc(issue["wcag"])}</p>\n'
 
-        # Fix instructions
         fix = issue.get("fix", {})
         if fix:
             if fix.get("summary_he"):
-                elems.append(Paragraph(
-                    _heb(f"<b>כיצד לתקן:</b> {fix['summary_he']}"), s["body_small"]
-                ))
+                issue_html += f'  <p><strong>כיצד לתקן:</strong> {_esc(fix["summary_he"])}</p>\n'
             if fix.get("impact"):
-                elems.append(Paragraph(
-                    _heb(f"<b>השפעה:</b> {fix['impact']}"), s["body_small"]
-                ))
+                issue_html += f'  <p><strong>השפעה:</strong> {_esc(fix["impact"])}</p>\n'
             if fix.get("code_example"):
-                code = fix["code_example"].strip().replace("<", "&lt;").replace(">", "&gt;")
-                elems.append(Spacer(1, 0.1 * cm))
-                elems.append(Paragraph(f"<pre>{code}</pre>", s["code"]))
+                code = _esc(fix["code_example"].strip())
+                issue_html += f'  <pre><code>{code}</code></pre>\n'
 
-        elems.append(Spacer(1, 0.4 * cm))
+        issue_html += '</div>\n'
+        issues_html += issue_html
 
-    return elems
+    return issues_html
 
 
-def _build_standards_checklist(results: Dict, s) -> list:
-    """Section 5: what was checked vs what requires manual review."""
-    elems: list = []
-    elems.append(Paragraph(_heb("עמידה בתקן – רשימת בדיקות"), s["heading"]))
-    elems.append(Spacer(1, 0.2 * cm))
-
+def _build_standards_checklist_html(results: Dict) -> str:
     coverage = results.get("coverage", {})
     checked_keys = coverage.get("checked_keys", [])
-
     auto_pct = int(coverage.get("automated_estimate", 0.77) * 100)
-    elems.append(Paragraph(
-        _heb(f"<b>כיסוי אוטומטי כולל: {auto_pct}%</b>"), s["body"]
-    ))
-    elems.append(Spacer(1, 0.2 * cm))
 
-    # Checked items
-    elems.append(Paragraph(_heb("<b>נבדק אוטומטית:</b>"), s["body"]))
+    checked_items = ""
     for key in checked_keys:
         label = CHECKED_KEYS_MAP.get(key, key)
-        elems.append(Paragraph(_heb(f"  ✔ {label}"), s["body_small"]))
+        checked_items += f"<li>✔ {_esc(label)}</li>\n"
 
-    elems.append(Spacer(1, 0.3 * cm))
-
-    # Manual items
-    elems.append(Paragraph(_heb("<b>דורש בדיקה ידנית:</b>"), s["body"]))
-    manual_items = [
+    manual_items_list = [
         "איכות תיאורים חלופיים",
         "כתוביות לוידאו",
         "חווית קורא מסך",
         "בהירות תוכן וקישורים",
     ]
-    for item in manual_items:
-        elems.append(Paragraph(_heb(f"  ✖ {item}"), s["body_small"]))
+    manual_html = ""
+    for item in manual_items_list:
+        manual_html += f"<li>✖ {item}</li>\n"
 
-    return elems
+    return f"""
+    <h2>עמידה בתקן – רשימת בדיקות</h2>
+    <p><strong>כיסוי אוטומטי כולל: {auto_pct}%</strong></p>
+
+    <p><strong>נבדק אוטומטית:</strong></p>
+    <ul class="checklist">{checked_items}</ul>
+
+    <p><strong>דורש בדיקה ידנית:</strong></p>
+    <ul class="checklist">{manual_html}</ul>
+    """
 
 
-def _build_recommendations(results: Dict, s) -> list:
-    """Section 6: prioritised recommendations."""
-    elems: list = []
-    elems.append(Paragraph(_heb("המלצות לצעדים הבאים"), s["heading"]))
-    elems.append(Spacer(1, 0.2 * cm))
-
+def _build_recommendations_html(results: Dict) -> str:
     risk = results.get("risk", {})
     level = risk.get("level", "MEDIUM")
 
@@ -625,32 +315,232 @@ def _build_recommendations(results: Dict, s) -> list:
         ],
     }
 
+    items = ""
     for i, step in enumerate(recs.get(level, recs["MEDIUM"]), 1):
-        elems.append(Paragraph(_heb(f"{i}. {step}"), s["body"]))
-        elems.append(Spacer(1, 0.1 * cm))
+        items += f"<li>{step}</li>\n"
 
-    return elems
+    return f"""
+    <h2>המלצות לצעדים הבאים</h2>
+    <ol>{items}</ol>
+    """
 
 
-def _build_disclaimer(s) -> list:
-    """Section 7: legal disclaimer and footer."""
-    elems: list = []
-    elems.append(Spacer(1, 0.5 * cm))
+def _build_disclaimer_html() -> str:
+    today = datetime.now().strftime("%d/%m/%Y")
+    return f"""
+    <div class="disclaimer">
+      <p>
+        <strong>הצהרת אחריות:</strong><br>
+        דו"ח זה מבוסס על סריקה אוטומטית ומזהה בממוצע 77% מבעיות הנגישות.
+        נגישות מלאה דורשת גם בדיקה ידנית מקצועית.
+        השימוש בדו"ח אינו מהווה ייעוץ משפטי.
+        להתייעצות משפטית, פנה לעורך דין מוסמך.
+      </p>
+      <p class="footer">נוצר על ידי Israeli Accessibility Scanner | {today}</p>
+    </div>
+    """
 
-    disclaimer = (
-        "<b>הצהרת אחריות:</b><br/>"
-        "דוח זה מבוסס על סריקה אוטומטית ומזהה בממוצע 77% מבעיות הנגישות. "
-        "נגישות מלאה דורשת גם בדיקה ידנית מקצועית. "
-        "השימוש בדוח אינו מהווה ייעוץ משפטי. "
-        "להתייעצות משפטית, פנה לעורך דין מוסמך."
-    )
-    elems.append(Paragraph(_heb(disclaimer), s["body_small"]))
-    elems.append(Spacer(1, 0.5 * cm))
 
-    footer = (
-        f"נוצר על ידי Israeli Accessibility Scanner | "
-        f"{datetime.now().strftime('%d/%m/%Y')}"
-    )
-    elems.append(Paragraph(_heb(footer), s["centered"]))
+# ---------------------------------------------------------------------------
+# CSS
+# ---------------------------------------------------------------------------
+REPORT_CSS = """
+@page {
+  size: A4;
+  margin: 2cm;
+}
 
-    return elems
+body {
+  font-family: "DejaVu Sans", "Noto Sans Hebrew", "Arial", sans-serif;
+  direction: rtl;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #111827;
+}
+
+h1.title {
+  font-size: 28px;
+  text-align: center;
+  color: #111827;
+  margin-bottom: 20px;
+}
+
+h2 {
+  font-size: 18px;
+  color: #1a56db;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 6px;
+  margin-top: 24px;
+}
+
+h3 {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+.meta-table td {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+.meta-label {
+  font-weight: bold;
+  width: 120px;
+}
+
+.score {
+  font-size: 48px;
+  font-weight: bold;
+  text-align: center;
+  margin: 20px 0;
+  padding: 20px;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+}
+
+.risk {
+  background-color: #fbe9e7;
+  border: 3px solid;
+  padding: 16px;
+  margin: 20px 0;
+  font-weight: bold;
+  font-size: 24px;
+  text-align: center;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 24px 0;
+}
+.summary-table th, .summary-table td {
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 12px;
+}
+.summary-table thead tr {
+  background: #e5e7eb;
+  font-weight: bold;
+}
+.summary-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+.total-row {
+  background: #e5e7eb !important;
+  font-weight: bold;
+}
+
+.issue {
+  margin-bottom: 20px;
+  border-right: 5px solid #eee;
+  padding-right: 12px;
+  padding-bottom: 8px;
+}
+
+.severity-badge {
+  color: white;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-right: 8px;
+}
+
+.wcag-ref {
+  font-size: 10px;
+  color: #6b7280;
+}
+
+code, pre {
+  font-family: "DejaVu Sans Mono", "Courier New", monospace;
+  background: #f4f4f4;
+  direction: ltr;
+  text-align: left;
+  padding: 8px;
+  display: block;
+  font-size: 9px;
+  border: 1px solid #e5e7eb;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.checklist {
+  list-style: none;
+  padding-right: 0;
+}
+.checklist li {
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+ol {
+  padding-right: 20px;
+}
+ol li {
+  margin-bottom: 6px;
+}
+
+.disclaimer {
+  font-size: 10px;
+  color: #666;
+  border-top: 1px solid #ccc;
+  margin-top: 40px;
+  padding-top: 20px;
+}
+
+.footer {
+  text-align: center;
+  font-size: 10px;
+  color: #999;
+  margin-top: 16px;
+}
+
+.page-break {
+  page-break-before: always;
+}
+"""
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+def generate_pdf_report(results: Dict[str, Any]) -> bytes:
+    """Generate a complete Hebrew PDF accessibility report.
+
+    Returns raw PDF bytes, compatible with the existing route API.
+    """
+    sections = [
+        _build_cover_html(results),
+        _build_legal_overview_html(),
+        _build_issues_table_html(results),
+        _build_detailed_issues_html(results),
+        _build_standards_checklist_html(results),
+        _build_recommendations_html(results),
+        _build_disclaimer_html(),
+    ]
+
+    body_content = "\n".join(sections)
+
+    html_str = f"""<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <style>{REPORT_CSS}</style>
+</head>
+<body>
+{body_content}
+</body>
+</html>"""
+
+    buf = BytesIO()
+    HTML(string=html_str).write_pdf(buf)
+    pdf_bytes = buf.getvalue()
+    buf.close()
+
+    logger.info(f"Generated PDF report ({len(pdf_bytes)} bytes)")
+    return pdf_bytes

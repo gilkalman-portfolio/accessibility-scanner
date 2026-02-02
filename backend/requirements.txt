@@ -8,8 +8,7 @@ pydantic-settings>=2.1.0
 playwright>=1.41.0
 
 # PDF generation
-reportlab>=4.0.9
-python-bidi>=0.4.2
+weasyprint>=62.0
 
 # Utilities
 python-dotenv>=1.0.0
