@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
+# Bust Docker cache for dependency changes
+ARG CACHEBUST=1
+
 # Copy requirements
 COPY requirements.txt .
 
