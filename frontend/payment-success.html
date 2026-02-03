@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>אישור תשלום – בודק נגישות ישראלי</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Payment success page specific styles */
+        .success-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .success-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .success-card {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--grey-200);
+            max-width: 560px;
+            width: 100%;
+            padding: 3rem 2.5rem;
+            text-align: center;
+        }
+
+        /* States */
+        .state { display: none; }
+        .state.active { display: block; }
+
+        /* Loading state */
+        .state-loading .loader {
+            width: 48px;
+            height: 48px;
+            border-width: 5px;
+            border-color: rgba(26, 86, 219, 0.2);
+            border-top-color: var(--primary);
+            margin: 0 auto 1.5rem;
+            display: block;
+        }
+        .state-loading p {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--grey-700);
+        }
+        .state-loading .sub {
+            font-size: 0.85rem;
+            color: var(--grey-400);
+            margin-top: 0.5rem;
+            font-weight: 400;
+        }
+
+        /* Success state */
+        .success-icon-large {
+            width: 80px;
+            height: 80px;
+            background: var(--success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 8px 24px rgba(5, 150, 105, 0.3);
+            animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes pop-in {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+        .state-success h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--grey-900);
+            margin-bottom: 0.5rem;
+        }
+        .state-success .email-confirmation {
+            font-size: 1rem;
+            color: var(--grey-600);
+            margin-bottom: 0.5rem;
+        }
+        .state-success .email-address {
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .state-success .email-note {
+            font-size: 0.85rem;
+            color: var(--grey-400);
+            margin-bottom: 2rem;
+        }
+        .state-success .btn-cta {
+            max-width: 340px;
+            margin: 0 auto 1rem;
+        }
+        .state-success .back-link {
+            display: inline-block;
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+        .state-success .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Error state */
+        .error-icon-large {
+            width: 80px;
+            height: 80px;
+            background: var(--danger);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+        .state-error h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--grey-900);
+            margin-bottom: 0.5rem;
+        }
+        .state-error p {
+            font-size: 0.95rem;
+            color: var(--grey-600);
+            margin-bottom: 1.5rem;
+        }
+        .state-error .btn-primary {
+            text-decoration: none;
+        }
+
+        /* Demo mode banner */
+        .demo-banner {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+            border-radius: var(--radius);
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Footer on success page */
+        .success-footer {
+            text-align: center;
+            padding: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--grey-400);
+        }
+        .success-footer a {
+            color: var(--grey-500);
+            text-decoration: none;
+        }
+        .success-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="success-page">
+    <!-- Header -->
+    <header class="header" style="padding: 2rem 0 1.5rem;">
+        <div class="container">
+            <div class="header-logo">
+                <a href="/">
+                    <img src="logo-compact.svg" alt="Israeli Accessibility Scanner" class="logo-img" width="400" height="100">
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="success-main">
+        <div class="success-card">
+
+            <!-- Loading State -->
+            <div class="state state-loading active" id="stateLoading">
+                <div class="loader"></div>
+                <p>מאמת תשלום...</p>
+                <p class="sub">מכין את הדוח שלך</p>
+            </div>
+
+            <!-- Success State -->
+            <div class="state state-success" id="stateSuccess">
+                <!-- Demo mode banner (hidden by default) -->
+                <div class="demo-banner" id="demoBanner" style="display: none;">
+                    &#9888; דמו בלבד – לא בוצע תשלום אמיתי
+                </div>
+
+                <div class="success-icon-large" aria-hidden="true">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                        <path d="M9 12l2 2 4-4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h2>התשלום בוצע בהצלחה!</h2>
+                <p class="email-confirmation">
+                    הדוח נשלח לכתובת: <span class="email-address" id="successEmail"></span>
+                </p>
+                <p class="email-note">בדוק גם בתיקיית הספאם אם לא קיבלת את המייל</p>
+
+                <button class="btn-cta" id="downloadBtn" type="button">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                        <path d="M9 2v9m0 0l-3-3m3 3l3-3M3 13v2h12v-2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    הורד דוח PDF
+                </button>
+
+                <a href="/" class="back-link">&#8592; חזרה לעמוד הראשי</a>
+            </div>
+
+            <!-- Error State -->
+            <div class="state state-error" id="stateError">
+                <div class="error-icon-large" aria-hidden="true">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                        <line x1="8" y1="8" x2="16" y2="16" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                        <line x1="16" y1="8" x2="8" y2="16" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h2>אירעה שגיאה</h2>
+                <p id="errorMsg">לא ניתן לאמת את התשלום. נסה שוב.</p>
+                <a href="/" class="btn-primary" style="display: inline-flex; text-decoration: none;">
+                    חזרה לעמוד הראשי
+                </a>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="success-footer">
+        <p>&copy; 2026 Israeli Accessibility Scanner |
+            <a href="/legal/terms.html" target="_blank">תנאי שימוש</a> |
+            <a href="/legal/privacy.html" target="_blank">פרטיות</a>
+        </p>
+    </footer>
+
+    <script>window.__API_URL__ = "https://truthful-simplicity-production.up.railway.app";</script>
+    <script>
+    (async () => {
+        "use strict";
+
+        const API_URL =
+            window.location.hostname === "localhost"
+                ? "http://localhost:8000"
+                : (window.__API_URL__ || "");
+
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get("session_id");
+        const isDemo = params.get("demo") === "1";
+
+        const stateLoading = document.getElementById("stateLoading");
+        const stateSuccess = document.getElementById("stateSuccess");
+        const stateError = document.getElementById("stateError");
+        const successEmail = document.getElementById("successEmail");
+        const demoBanner = document.getElementById("demoBanner");
+        const downloadBtn = document.getElementById("downloadBtn");
+        const errorMsg = document.getElementById("errorMsg");
+
+        function showState(state) {
+            stateLoading.classList.remove("active");
+            stateSuccess.classList.remove("active");
+            stateError.classList.remove("active");
+
+            if (state === "loading") stateLoading.classList.add("active");
+            else if (state === "success") stateSuccess.classList.add("active");
+            else if (state === "error") stateError.classList.add("active");
+        }
+
+        if (!sessionId) {
+            showState("error");
+            errorMsg.textContent = "חסר מזהה תשלום. חזור לעמוד הראשי ונסה שוב.";
+            return;
+        }
+
+        showState("loading");
+
+        // Retry verification with delay (PDF generation takes time)
+        let retries = 0;
+        const maxRetries = 3;
+        const retryDelay = 5000; // 5 seconds
+
+        async function verifyPayment() {
+            try {
+                const res = await fetch(
+                    `${API_URL}/api/v1/payment/verify/${sessionId}`,
+                    { method: "GET" }
+                );
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${res.status}`);
+                }
+
+                const data = await res.json();
+
+                if (data.status === "completed" && data.pdf_token) {
+                    // Success!
+                    showState("success");
+
+                    // Show email
+                    if (successEmail) {
+                        successEmail.textContent = data.email || "";
+                    }
+
+                    // Show demo banner if demo mode
+                    if (data.demo_mode && demoBanner) {
+                        demoBanner.style.display = "";
+                    }
+
+                    // Wire download button
+                    if (downloadBtn && data.pdf_token) {
+                        downloadBtn.addEventListener("click", async () => {
+                            downloadBtn.disabled = true;
+                            downloadBtn.textContent = "מוריד...";
+                            try {
+                                const pdfRes = await fetch(
+                                    `${API_URL}/api/v1/payment/download/${data.pdf_token}`
+                                );
+                                if (!pdfRes.ok) throw new Error("Download failed");
+
+                                const blob = await pdfRes.blob();
+                                const a = document.createElement("a");
+                                const url = URL.createObjectURL(blob);
+                                a.href = url;
+                                a.download = "accessibility-report.pdf";
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                URL.revokeObjectURL(url);
+                            } catch (e) {
+                                alert("הורדת הדוח נכשלה. נסה שוב או בדוק את המייל.");
+                            } finally {
+                                downloadBtn.disabled = false;
+                                downloadBtn.innerHTML = `
+                                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                                        <path d="M9 2v9m0 0l-3-3m3 3l3-3M3 13v2h12v-2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    הורד דוח PDF
+                                `;
+                            }
+                        });
+                    }
+
+                    // Clean URL params
+                    window.history.replaceState({}, "", window.location.pathname);
+                    return;
+
+                } else if (data.status === "pending" && retries < maxRetries) {
+                    // Payment still processing — retry
+                    retries++;
+                    setTimeout(verifyPayment, retryDelay);
+                    return;
+
+                } else {
+                    showState("error");
+                    errorMsg.textContent =
+                        "לא ניתן לאמת את התשלום. ייתכן שהתשלום לא הושלם.";
+                }
+
+            } catch (e) {
+                if (retries < maxRetries) {
+                    retries++;
+                    setTimeout(verifyPayment, retryDelay);
+                    return;
+                }
+                showState("error");
+                errorMsg.textContent = e.message || "שגיאה באימות התשלום.";
+            }
+        }
+
+        // Start verification
+        await verifyPayment();
+    })();
+    </script>
+</body>
+</html>

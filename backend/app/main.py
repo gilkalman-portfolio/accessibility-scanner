@@ -3,7 +3,7 @@ Israeli Accessibility Scanner API
 Main FastAPI application
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, HttpUrl, EmailStr
@@ -14,6 +14,8 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+
+from .payment import PaymentService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -85,6 +87,39 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     coverage: dict
+
+
+class CreatePaymentRequest(BaseModel):
+    url: HttpUrl
+    email: EmailStr
+    scan_id: str = ""
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "url": "https://example.com",
+                "email": "user@example.com",
+                "scan_id": "scan_abc123",
+            }
+        }
+
+
+class PaymentResponse(BaseModel):
+    session_id: str
+    payment_url: str
+    demo_mode: bool
+
+
+class PaymentVerifyResponse(BaseModel):
+    status: str
+    pdf_token: Optional[str] = None
+    email: str
+    scan_url: str
+    demo_mode: bool = False
+
+
+# Payment service singleton
+payment_service = PaymentService()
 
 
 # Routes
@@ -314,6 +349,144 @@ def _send_email(
         server.send_message(msg)
 
     logger.info(f"Email sent to {to_addr}")
+
+
+# ---- Payment Endpoints ---- #
+
+@app.post("/api/v1/payment/create", response_model=PaymentResponse)
+async def create_payment(request: CreatePaymentRequest):
+    """
+    Create a payment session. Returns a Meshulam payment page URL.
+    In demo mode (no MESHULAM_PAGE_CODE), returns a mock URL that auto-succeeds.
+    """
+    try:
+        logger.info(f"Creating payment session: url={request.url} email={request.email}")
+        result = await payment_service.create_session(
+            url=str(request.url),
+            email=str(request.email),
+            scan_id=request.scan_id,
+        )
+        return result
+    except RuntimeError as e:
+        logger.error(f"Payment creation failed: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        logger.error(f"Payment creation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create payment session.")
+
+
+@app.get("/api/v1/payment/verify/{session_id}")
+async def verify_payment(session_id: str):
+    """
+    Verify payment for a session. On success, generates PDF and sends email.
+    Returns pdf_token for secure download.
+    """
+    try:
+        result = await payment_service.verify_session(session_id)
+
+        if result["status"] == "not_found":
+            raise HTTPException(status_code=404, detail="Payment session not found.")
+
+        # If payment just completed, generate PDF and send email
+        if result["status"] == "completed" and result["pdf_token"]:
+            session = payment_service._sessions.get(session_id)
+            if session and not session.get("pdf_bytes"):
+                try:
+                    from .scanner import scan_url
+                    from .pdf_generator import generate_pdf_report
+
+                    scan_results = await scan_url(url=result["scan_url"])
+                    pdf_bytes = generate_pdf_report(scan_results)
+                    payment_service.store_pdf(session_id, pdf_bytes)
+
+                    # Auto-send email with PDF
+                    try:
+                        _send_email(
+                            to_addr=result["email"],
+                            subject=f"דוח נגישות – {result['scan_url']}",
+                            html_body=_build_email_html(scan_results),
+                            pdf_bytes=pdf_bytes,
+                            pdf_filename=f"accessibility-report-{scan_results.get('scan_id', 'report')}.pdf",
+                        )
+                        logger.info(f"Report emailed to {result['email']} for session {session_id}")
+                    except Exception as email_err:
+                        logger.error(f"Email send failed (payment still valid): {email_err}")
+
+                except Exception as scan_err:
+                    logger.error(f"PDF generation during verify failed: {scan_err}")
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Payment verify error: {e}")
+        raise HTTPException(status_code=500, detail="Payment verification failed.")
+
+
+@app.get("/api/v1/payment/download/{pdf_token}")
+async def download_pdf_by_token(pdf_token: str):
+    """
+    Download PDF report using a one-time token from payment verification.
+    Token expires after 30 minutes.
+    """
+    session = payment_service.get_session_by_token(pdf_token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Invalid or expired download token.")
+
+    pdf_bytes = session.get("pdf_bytes")
+    if not pdf_bytes:
+        # PDF not cached — regenerate
+        try:
+            from .scanner import scan_url
+            from .pdf_generator import generate_pdf_report
+
+            scan_results = await scan_url(url=session["url"])
+            pdf_bytes = generate_pdf_report(scan_results)
+            payment_service.store_pdf(session["session_id"], pdf_bytes)
+        except Exception as e:
+            logger.error(f"PDF regeneration failed: {e}")
+            raise HTTPException(status_code=500, detail="PDF generation failed.")
+
+    safe_id = "".join(
+        c for c in session.get("scan_id", "report") if c.isalnum() or c in "-_"
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="accessibility-report-{safe_id}.pdf"'
+        },
+    )
+
+
+@app.post("/api/v1/payment/webhook")
+async def payment_webhook(request: Request):
+    """
+    Meshulam server-to-server payment notification.
+    Updates session status when payment completes.
+    """
+    try:
+        data = await request.json()
+        logger.info(f"Payment webhook received: {data}")
+        success = await payment_service.handle_webhook(data)
+        return {"status": "ok", "processed": success}
+    except Exception as e:
+        logger.error(f"Webhook processing error: {e}")
+        return {"status": "error", "processed": False}
+
+
+@app.get("/api/v1/payment/status")
+async def payment_system_status():
+    """
+    Check if the payment system is in demo mode or production.
+    Useful for frontend to display demo warnings.
+    """
+    return {
+        "demo_mode": payment_service.demo_mode,
+        "amount": payment_service.amount,
+        "currency": "ILS",
+    }
 
 
 # Error handlers
