@@ -95,6 +95,12 @@ body {
 
 .header-logo {
     margin-bottom: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-xl);
+    padding: 12px 24px;
 }
 
 .logo-img {
@@ -102,6 +108,7 @@ body {
     width: 100%;
     height: auto;
     filter: brightness(0) invert(1);
+    drop-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .header-badge {
@@ -710,6 +717,47 @@ body {
     font-size: 0.8rem;
     color: var(--grey-600);
     line-height: 1.7;
+}
+
+/* ========== Legal Risk Section ========== */
+.legal-risk-section {
+    background: var(--grey-50);
+    border: 1px solid var(--grey-200);
+    border-radius: var(--radius);
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 2rem;
+    text-align: right;
+}
+
+.legal-risk-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--grey-800);
+    margin-bottom: 0.75rem;
+}
+
+.legal-risk-list {
+    list-style: disc;
+    padding-right: 1.2rem;
+    margin: 0 0 0.75rem 0;
+}
+
+.legal-risk-list li {
+    font-size: 0.9rem;
+    color: var(--grey-700);
+    line-height: 1.7;
+    margin-bottom: 0.4rem;
+}
+
+.legal-risk-list li:last-child {
+    margin-bottom: 0;
+}
+
+.legal-risk-disclaimer {
+    font-size: 0.8rem;
+    color: var(--grey-400);
+    margin-top: 0.5rem;
+    line-height: 1.5;
 }
 
 /* ========== CTA Section ========== */

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>יצירת קשר - Israeli Accessibility Scanner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Heebo', sans-serif;
+            line-height: 1.8;
+            color: #1f2937;
+            background: #f9fafb;
+            direction: rtl;
+        }
+        .page-header {
+            background: linear-gradient(145deg, #1a56db 0%, #1240a8 100%);
+            color: #fff;
+            padding: 2rem 0;
+            text-align: center;
+        }
+        .page-header h1 { font-size: 1.75rem; font-weight: 700; }
+        .container {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 2.5rem 1rem;
+        }
+        .content-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem 2.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07);
+            border: 1px solid #e5e7eb;
+        }
+        h2 { font-size: 1.15rem; font-weight: 700; color: #111827; margin: 1.5rem 0 0.5rem; }
+        h2:first-child { margin-top: 0; }
+        p { font-size: 0.95rem; color: #4b5563; margin-bottom: 0.75rem; }
+        .email-box {
+            background: #e8eefb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            margin: 1.5rem 0;
+        }
+        .email-box a {
+            display: inline-block;
+            color: #1240a8;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            direction: ltr;
+        }
+        .email-box a:hover { text-decoration: underline; }
+        .email-box p {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 0.5rem;
+            margin-bottom: 0;
+        }
+        .mailto-btn {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.7rem 2rem;
+            background: #1a56db;
+            color: #fff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+        .mailto-btn:hover { background: #1240a8; }
+        .back-link {
+            display: inline-block;
+            margin-top: 1.5rem;
+            color: #1a56db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .footer {
+            text-align: center;
+            padding: 1.5rem;
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <header class="page-header">
+        <h1>יצירת קשר</h1>
+    </header>
+    <main class="container">
+        <div class="content-card">
+            <h2>נשמח לשמוע ממך</h2>
+            <p>
+                לשאלות, הצעות, דיווח על בעיות נגישות, או כל פנייה אחרת –
+                ניתן ליצור קשר בדוא"ל.
+            </p>
+
+            <div class="email-box">
+                <a href="mailto:support@accessibility-scan.co.il">support@accessibility-scan.co.il</a>
+                <p>נשתדל להגיב לפניות תוך 3 ימי עסקים.</p>
+                <a href="mailto:support@accessibility-scan.co.il?subject=%D7%A4%D7%A0%D7%99%D7%99%D7%94%20%D7%9E%D7%94%D7%90%D7%AA%D7%A8" class="mailto-btn">
+                    שלח דוא"ל
+                </a>
+            </div>
+
+            <h2>באילו נושאים ניתן לפנות?</h2>
+            <p>
+                שאלות לגבי שימוש בשירות, דיווח על תקלות טכניות,
+                בעיות נגישות באתר שלנו, או בקשות כלליות.
+            </p>
+
+            <a href="/" class="back-link">&#8592; חזרה לדף הראשי</a>
+        </div>
+    </main>
+    <footer class="footer">
+        <p>&copy; 2026 Israeli Accessibility Scanner. כל הזכויות שמורות.</p>
+    </footer>
+</body>
+</html>
