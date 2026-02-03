@@ -35,7 +35,7 @@ _default_origins = ",".join([
     "http://localhost:3000",
     "http://localhost:8080",
     "http://localhost:8888",
-    "https://frontend-sooty-omega-76.vercel.app",
+    "https://gilkalman-portfolio-accessibility-s.vercel.app",
 ])
 _allowed_origins = [
     o.strip() for o in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()

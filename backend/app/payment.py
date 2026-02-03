@@ -29,7 +29,7 @@ class PaymentService:
         self.amount = int(os.getenv("PAYMENT_AMOUNT", "79"))
         self.frontend_url = os.getenv(
             "FRONTEND_URL",
-            "https://frontend-sooty-omega-76.vercel.app",
+            "https://gilkalman-portfolio-accessibility-s.vercel.app",
         ).rstrip("/")
         self.backend_url = os.getenv(
             "BACKEND_URL",
